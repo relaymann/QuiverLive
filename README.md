@@ -4,70 +4,89 @@ SchoolStream is a Twitch-style livestreaming platform focused on a lightweight, 
 
 ## Upstream attribution
 
-This project currently builds on the starter at [nayak-nirmalya/twitch-clone](https://github.com/nayak-nirmalya/twitch-clone), whose README credits [Antonio Erdeljac](https://github.com/AntonioErdeljac). SchoolStream is an independent fork and is being substantially modified.
+This project builds on the starter at [nayak-nirmalya/twitch-clone](https://github.com/nayak-nirmalya/twitch-clone), whose README credits [Antonio Erdeljac](https://github.com/AntonioErdeljac). SchoolStream is an independent fork and is being substantially modified.
 
-The upstream repository did not contain a LICENSE file when checked. Confirm the applicable permissions and licensing before distributing or operating a public derivative service.
+The upstream repository did not contain a LICENSE file when checked. Confirm applicable permissions and licensing before distributing or operating a public derivative service.
 
 ## Current stack
 
-- Next.js App Router and React
-- Clerk authentication
+- Next.js 15.5 Maintenance LTS and React 18
+- Clerk 7 authentication
 - Prisma with MySQL
-- LiveKit for real-time audio/video and chat transport
+- LiveKit for real-time audio/video and server-relayed chat
 - UploadThing for stream thumbnails
 
-## Broadcasting
+## Broadcasting and Chromebook performance
 
-- Browser camera and microphone broadcasting
-- Browser screen sharing, including shared-tab audio where the browser supports it
-- RTMP and WHIP ingress for OBS and compatible broadcasting tools
-- A channel can use one publishing source at a time; the server checks for an already-live source before starting browser broadcasting
+- Browser camera and microphone broadcasting, plus RTMP/WHIP for OBS
+- Browser screen sharing, including audio where supported by the browser
+- Browser capture options: 360p, 540p, 720p; camera 15, 24, or 30 FPS
+- Screen capture is capped at 15 FPS by default to reduce CPU and bandwidth
+- LiveKit adaptive stream and dynacast are enabled for viewers
+- Player supports camera and screen-share tracks
+
+## Chat enforcement
+
+Chat messages are relayed by the server. Viewer tokens do not grant data publishing, preventing browser clients from bypassing server checks by sending raw LiveKit packets.
+
+The server checks chat-enabled status, follower-only access, blocks in both directions, and a 300-character message limit. Database-backed per-user/per-channel rate limits enforce three seconds between messages in slow mode and a one-second baseline anti-spam interval. The atomic database update works across multiple serverless instances.
+
+Chat is realtime only. Message history is not yet persisted, and viewers joining after a message was sent do not receive that message.
 
 ## Local development
 
-1. Install Node.js (use the current LTS release) and npm.
-2. Install dependencies with `npm install`.
-3. Copy `.env.example` to `.env.local` and fill in the required credentials.
-4. Generate the Prisma client with `npx prisma generate`.
-5. Apply the Prisma schema to your MySQL database with `npx prisma db push` (or use your established migration workflow).
-6. Run `npm run typecheck` and `npm run lint`.
-7. Start the development server with `npm run dev`.
+1. Install Node.js 22 LTS and npm.
+2. Run npm install.
+3. Copy .env.example to .env.local and configure the required credentials.
+4. Run npx prisma generate.
+5. Apply the schema to MySQL with npx prisma db push (or your established migration workflow). This creates the ChatRateLimit table required by server-enforced chat.
+6. Run npm run typecheck, npm run lint, and npm run build.
+7. Start with npm run dev.
+
+## CI checks
+
+GitHub Actions runs dependency installation, Prisma validation, npm audit, ESLint, TypeScript checks, and a production build. A lockfile workflow regenerates package-lock.json when package.json changes on development.
 
 ## Deploying to Vercel
 
-The intended production host is **Vercel**. This is a Next.js application and should be deployed as a standard Vercel project:
+Vercel is the intended web host. Do not deploy production until the runtime checks below pass.
 
-1. Import `relaymann/SchoolStream` into Vercel.
-2. Select the `development` branch for preview deployments while development is in progress. Use the production branch only after the release is ready.
-3. Keep the framework preset as Next.js. The standard build command is `npm run build`; the output directory should remain managed by Next.js.
-4. Configure the environment variables below for the appropriate Vercel environments.
-5. Configure Clerk's production instance and webhook endpoint at `https://YOUR_DOMAIN/api/webhooks/clerk`.
-6. Configure LiveKit's webhook endpoint at `https://YOUR_DOMAIN/api/webhooks/livekit`.
-7. Add the deployed domain to Clerk's allowed origins/redirect settings and configure the public LiveKit WebSocket URL.
+1. Import relaymann/SchoolStream into Vercel.
+2. Use development for preview deployments during development. Keep master stable until the release is ready.
+3. Keep the Next.js framework preset and let Next.js manage the build output.
+4. Configure the environment variables below separately for Preview and Production.
+5. Configure Clerk's webhook at https://YOUR_DOMAIN/api/webhooks/clerk.
+6. Configure LiveKit's webhook at https://YOUR_DOMAIN/api/webhooks/livekit.
+7. Add the deployed domain to Clerk's allowed origins and redirect settings.
 
 ### Required environment variables
 
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
-- `CLERK_SECRET_KEY`
-- `CLERK_WEBHOOK_SECRET`
-- `DATABASE_URL`
-- `LIVEKIT_API_URL`
-- `LIVEKIT_API_KEY`
-- `LIVEKIT_API_SECRET`
-- `NEXT_PUBLIC_LIVEKIT_WS_URL`
-- `UPLOADTHING_SECRET`
-- `UPLOADTHING_APP_ID`
+- NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+- CLERK_SECRET_KEY
+- CLERK_WEBHOOK_SECRET
+- DATABASE_URL
+- LIVEKIT_API_URL
+- LIVEKIT_API_KEY
+- LIVEKIT_API_SECRET
+- NEXT_PUBLIC_LIVEKIT_WS_URL
+- UPLOADTHING_SECRET
+- UPLOADTHING_APP_ID
 
-The `NEXT_PUBLIC_CLERK_*` sign-in/sign-up URL variables in `.env.example` are optional if the defaults are acceptable.
+Use a managed MySQL database with serverless-appropriate connection pooling. LiveKit is a separate media service; Vercel does not provide media ingress or egress infrastructure. Never expose secret keys, webhook secrets, database credentials, or stream keys in client-side code.
 
-### Production notes
+## Runtime verification required before production
 
-- Use a managed MySQL database with connection pooling suitable for serverless workloads. Keep the connection string private and configure it separately for Preview and Production.
-- LiveKit is an external media service; Vercel does not provide the media ingress/egress infrastructure.
-- Never expose LiveKit API secrets, Clerk secret keys, webhook secrets, database credentials, or stream keys in client-side code.
-- Configure webhook secrets independently for each environment.
-- Do not deploy production until the authentication, webhook, chat authorization, database, and real-device streaming tests pass.
+These tests require real Clerk, MySQL, LiveKit, UploadThing, and browser credentials/devices. CI cannot substitute for them.
 
-## Project status
+- [ ] Create, sign in, and delete accounts; verify Clerk webhook provisioning and deletion.
+- [ ] Verify public routes work signed out and dashboard pages/actions reject signed-out users.
+- [ ] Test follow, unfollow, block, unblock, bio edits, and follower-only chat across two accounts.
+- [ ] Test disabled chat, normal rate limiting, slow mode, and block enforcement. Attempt direct LiveKit data publishing and confirm it is denied.
+- [ ] Broadcast camera, microphone, and screen share from a Chromebook; verify viewers receive video and supported audio.
+- [ ] Test RTMP/WHIP and browser broadcast mutual exclusion in both directions.
+- [ ] Test permission denial, screen-share cancellation, track-ended, navigation, tab close, Wi-Fi interruption, reconnect, and shutdown.
+- [ ] Test 360p/540p/720p and camera 15/24/30 FPS on low-powered hardware; measure CPU, memory, and network usage.
+- [ ] Verify LiveKit webhook delivery for ingress_started, ingress_ended, participant_joined, and participant_left.
+- [ ] Apply the Prisma schema update before enabling the new chat path in any deployed environment.
 
-This repository began as a Twitch-style starter. SchoolStream development is actively replacing inherited branding, tightening server-side authorization, and preparing the application for reliable Vercel deployment. Features are not considered production-ready until they have been tested against configured external services.
+Development work remains on the development branch. master is not modified by this work. No Vercel deployment is performed automatically.
