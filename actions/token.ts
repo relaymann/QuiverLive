@@ -1,27 +1,30 @@
 "use server";
 
 import { v4 } from "uuid";
+import { currentUser } from "@clerk/nextjs";
 import { AccessToken } from "livekit-server-sdk";
 
-import { getSelf } from "@/lib/auth-service";
 import { getUserById } from "@/lib/user-service";
-import { isBlockedByUser } from "@/lib/block-service";
 import { db } from "@/lib/db";
 
 export const createViewerToken = async (hostIdentity: string) => {
-  let self: { id: string; username: string };
-  let isGuest = false;
+  // Only a genuinely unauthenticated request becomes a guest. Database or
+  // Clerk failures must not silently downgrade an account to guest access.
+  const clerkUser = await currentUser();
+  const guestId = v4();
 
-  try {
-    const authenticatedUser = await getSelf();
-    self = { id: authenticatedUser.id, username: authenticatedUser.username };
-  } catch {
-    // Guests receive an ephemeral identity and never gain creator privileges.
-    isGuest = true;
-    self = {
-      id: v4(),
-      username: `guest-${v4().slice(0, 8)}`,
-    };
+  const self = clerkUser
+    ? await db.user.findUnique({
+        where: { externalUserId: clerkUser.id },
+        select: { id: true, username: true },
+      })
+    : {
+        id: guestId,
+        username: `guest-${guestId.slice(0, 8)}`,
+      };
+
+  if (!self) {
+    throw new Error("Your account is still being provisioned. Please try again.");
   }
 
   const host = await getUserById(hostIdentity);
@@ -29,22 +32,29 @@ export const createViewerToken = async (hostIdentity: string) => {
     throw new Error("User not found");
   }
 
-  if (await isBlockedByUser(host.id)) {
-    throw new Error("User is blocked");
+  const isHost = self.id === host.id;
+
+  if (!isHost && clerkUser) {
+    const hostBlock = await db.block.findUnique({
+      where: {
+        blockerId_blockedId: {
+          blockerId: host.id,
+          blockedId: self.id,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (hostBlock) {
+      throw new Error("You are blocked by this channel");
+    }
   }
 
-  const isHost = !isGuest && self.id === host.id;
+  let canPublishData = host.stream?.isChatEnabled === true;
 
-  let canPublishData = isHost || host.stream?.isChatEnabled === true;
-
-  if (
-    canPublishData &&
-    !isHost &&
-    host.stream?.isChatFollowersOnly
-  ) {
-    const existingFollow = isGuest
-      ? null
-      : await db.follow.findUnique({
+  if (canPublishData && !isHost && host.stream?.isChatFollowersOnly) {
+    const existingFollow = clerkUser
+      ? await db.follow.findUnique({
           where: {
             followerId_followingId: {
               followerId: self.id,
@@ -52,7 +62,8 @@ export const createViewerToken = async (hostIdentity: string) => {
             },
           },
           select: { id: true },
-        });
+        })
+      : null;
 
     canPublishData = !!existingFollow;
   }
@@ -70,9 +81,8 @@ export const createViewerToken = async (hostIdentity: string) => {
     room: host.id,
     roomJoin: true,
     canPublish: false,
-    // Enforce disabled and followers-only chat at token issuance. Slow mode
-    // still requires a server-mediated chat relay/rate limiter; LiveKit data
-    // grants alone cannot enforce per-message timing.
+    // Disabled and followers-only chat are enforced when the token is issued.
+    // Slow mode still needs a server-mediated chat relay/rate limiter.
     canPublishData,
   });
 
