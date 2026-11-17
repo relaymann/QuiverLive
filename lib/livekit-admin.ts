@@ -20,7 +20,7 @@ export const resetIngresses = async (internalUserId: string) => {
     throw new Error("LiveKit server credentials are not configured");
   }
 
-  const ingressClient = new IngressClient(apiUrl);
+  const ingressClient = new IngressClient(apiUrl, apiKey, apiSecret);
   const roomService = new RoomServiceClient(apiUrl, apiKey, apiSecret);
 
   const ingresses = await ingressClient.listIngress({ roomName: internalUserId });

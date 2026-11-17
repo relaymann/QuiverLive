@@ -14,10 +14,17 @@ import { db } from "@/lib/db";
 import { getSelf } from "@/lib/auth-service";
 import { resetIngresses } from "@/lib/livekit-admin";
 
-const ingressClient = new IngressClient(process.env.LIVEKIT_API_URL!);
-
 export const createIngress = async (ingressType: IngressInput) => {
   const self = await getSelf();
+  const apiUrl = process.env.LIVEKIT_API_URL;
+  const apiKey = process.env.LIVEKIT_API_KEY;
+  const apiSecret = process.env.LIVEKIT_API_SECRET;
+
+  if (!apiUrl || !apiKey || !apiSecret) {
+    throw new Error("LiveKit server credentials are not configured");
+  }
+
+  const ingressClient = new IngressClient(apiUrl, apiKey, apiSecret);
 
   if (
     ingressType !== IngressInput.RTMP_INPUT &&
