@@ -55,3 +55,14 @@ The following cannot be truthfully marked complete without the real external ser
 - All work is on development.
 - master remains untouched.
 - No production deployment or Vercel project configuration was performed.
+
+
+## Dependency audit result (2026-11-17)
+
+The latest CI run (44141693761) passed Prisma validation, ESLint, TypeScript, production build, the production dependency audit at high severity, and the all-dependency critical-severity gate.
+
+The production dependency audit is clean at the configured high-severity threshold. Compatible lockfile fixes upgraded Axios, protobufjs, form-data, jws, follow-redirects, PostCSS, sharp, uuid, and query-string without forcing breaking major-version changes.
+
+The complete development dependency audit still reports 21 advisories (3 moderate, 18 high). The high findings are concentrated in picomatch used by Tailwind/ESLint/type-analysis tooling; the moderate findings include glob/minimatch in the same build-tool chain. The current npm picomatch release is 4.0.7, and the published advisory affects versions through 4.0.7 without identifying a patched release. Do not use npm audit fix --force: npm proposed downgrading eslint-config-next to 14.2.35, which would be an unsafe and incompatible workaround. Monitor the upstream advisory and upgrade the affected development toolchain when a compatible patched release is published.
+
+This is a development/build-tool risk, not a clean full audit. CI deliberately blocks high vulnerabilities in production dependencies and any critical vulnerability across all dependencies while the upstream picomatch fix is pending.
