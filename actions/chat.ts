@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 /** Server-relayed chat prevents clients from bypassing moderation and slow mode. */
 export const sendChatMessage = async (hostIdentity: string, rawMessage: string) => {
   const self = await getSelf();
+  if (typeof rawMessage !== "string") throw new Error("Invalid chat message");
   const message = rawMessage.trim();
   if (!message || message.length > 300) throw new Error("Messages must be between 1 and 300 characters");
 

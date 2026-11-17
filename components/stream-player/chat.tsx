@@ -48,10 +48,11 @@ export function Chat({ hostName, hostIdentity, viewerName, isFollowing, isChatEn
   const orderedMessages = useMemo(() => [...messages].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()), [messages]);
 
   const onSubmit = async () => {
-    try { await sendChatMessage(hostIdentity, value); setValue(""); }
-    catch (error) {
+    try {
+      await sendChatMessage(hostIdentity, value);
+      setValue("");
+    } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to send your message");
-      throw error;
     }
   };
 
