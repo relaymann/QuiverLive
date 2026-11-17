@@ -39,7 +39,6 @@ export function Chat({
   const participant = useRemoteParticipant(hostIdentity);
 
   const isOnline = participant && connectionState === ConnectionState.Connected;
-
   const isHidden = !isChatEnabled || !isOnline;
 
   const [value, setValue] = useState("");
@@ -51,20 +50,18 @@ export function Chat({
     }
   }, [matches, onExpand]);
 
-  const reversedMessages = useMemo(() => {
-    return messages.sort((a, b) => b.timestamp - a.timestamp);
-  }, [messages]);
+  const reversedMessages = useMemo(
+    () => [...messages].sort((a, b) => b.timestamp - a.timestamp),
+    [messages]
+  );
 
   const onSubmit = () => {
     if (!send) return;
-
     send(value);
     setValue("");
   };
 
-  const onChange = (value: string) => {
-    setValue(value);
-  };
+  const onChange = (value: string) => setValue(value);
 
   return (
     <div className="flex flex-col bg-background border-l border-b pt-0 h-[calc(100vh-80px)]">
@@ -84,13 +81,11 @@ export function Chat({
         </>
       )}
       {variant === ChatVariant.COMMUNITY && (
-        <>
-          <ChatCommunity
-            hostName={hostName}
-            viewerName={viewerName}
-            isHidden={isHidden}
-          />
-        </>
+        <ChatCommunity
+          hostName={hostName}
+          viewerName={viewerName}
+          isHidden={isHidden}
+        />
       )}
     </div>
   );

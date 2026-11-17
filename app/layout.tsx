@@ -12,10 +12,11 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | GameHub",
-    default: "GameHub",
+    template: "%s | SchoolStream",
+    default: "SchoolStream",
   },
-  description: "Twitch Clone with Next.js, React.js, TailWindCSS & TypeScript.",
+  description:
+    "SchoolStream is a community livestreaming platform built for accessible broadcasting and watching on school Chromebooks.",
 };
 
 export default function RootLayout({
@@ -30,9 +31,9 @@ export default function RootLayout({
           <ThemeProvider
             attribute="class"
             forcedTheme="dark"
-            storageKey="gamehub-theme"
+            storageKey="schoolstream-theme"
           >
-            <Toaster theme="light" position="bottom-center" />
+            <Toaster theme="dark" position="bottom-center" />
             {children}
           </ThemeProvider>
         </body>

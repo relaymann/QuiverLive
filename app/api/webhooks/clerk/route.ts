@@ -1,93 +1,98 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
-import { WebhookEvent } from "@clerk/nextjs/server";
+import type { WebhookEvent } from "@clerk/nextjs/server";
 
 import { db } from "@/lib/db";
-import { resetIngresses } from "@/actions/ingress";
+import { resetIngresses } from "@/lib/livekit-admin";
+
+type ClerkWebhookData = {
+  id: string;
+  username?: string | null;
+  image_url?: string | null;
+};
 
 export async function POST(req: Request) {
-  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+  const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
 
-  if (!WEBHOOK_SECRET) {
-    throw new Error(
-      "Please add CLERK_WEBHOOK_SECRET from Clerk Dashboard to .env or .env.local"
-    );
+  if (!webhookSecret) {
+    console.error("CLERK_WEBHOOK_SECRET is not configured");
+    return new Response("Webhook is not configured", { status: 500 });
   }
 
-  // Get the headers
   const headerPayload = headers();
-  const svix_id = headerPayload.get("svix-id");
-  const svix_timestamp = headerPayload.get("svix-timestamp");
-  const svix_signature = headerPayload.get("svix-signature");
+  const svixId = headerPayload.get("svix-id");
+  const svixTimestamp = headerPayload.get("svix-timestamp");
+  const svixSignature = headerPayload.get("svix-signature");
 
-  // If there are no headers, error out
-  if (!svix_id || !svix_timestamp || !svix_signature) {
-    return new Response("Error occured -- no svix headers", {
-      status: 400,
-    });
+  if (!svixId || !svixTimestamp || !svixSignature) {
+    return new Response("Missing webhook signature headers", { status: 400 });
   }
 
-  // Get the body
-  const payload = await req.json();
-  const body = JSON.stringify(payload);
+  // Svix signatures cover the exact bytes sent by Clerk. Do not parse and
+  // re-stringify JSON before verification.
+  const rawBody = await req.text();
+  const webhook = new Webhook(webhookSecret);
 
-  // Create a new Svix instance with your secret.
-  const wh = new Webhook(WEBHOOK_SECRET);
-
-  let evt: WebhookEvent;
-
-  // Verify the payload with the headers
+  let event: WebhookEvent;
   try {
-    evt = wh.verify(body, {
-      "svix-id": svix_id,
-      "svix-timestamp": svix_timestamp,
-      "svix-signature": svix_signature,
+    event = webhook.verify(rawBody, {
+      "svix-id": svixId,
+      "svix-timestamp": svixTimestamp,
+      "svix-signature": svixSignature,
     }) as WebhookEvent;
-  } catch (err) {
-    console.error("Error verifying webhook:", err);
-    return new Response("Error occured", {
-      status: 400,
-    });
+  } catch (error) {
+    console.error("Clerk webhook signature verification failed", error);
+    return new Response("Invalid webhook signature", { status: 400 });
   }
 
-  const eventType = evt.type;
+  const data = (event as unknown as { data: ClerkWebhookData }).data;
+  if (!data?.id) {
+    return new Response("Invalid webhook payload", { status: 400 });
+  }
 
-  if (eventType === "user.created") {
-    await db.user.create({
-      data: {
-        externalUserId: payload.data.id,
-        username: payload.data.username,
-        imageUrl: payload.data.image_url,
-        stream: {
-          create: {
-            name: `${payload.data.username}'s stream`,
+  try {
+    if (event.type === "user.created" || event.type === "user.updated") {
+      const username =
+        data.username?.trim() || `user-${data.id.slice(-8).toLowerCase()}`;
+      const imageUrl = data.image_url || "";
+
+      await db.user.upsert({
+        where: { externalUserId: data.id },
+        create: {
+          externalUserId: data.id,
+          username,
+          imageUrl,
+          stream: {
+            create: { name: `${username}'s stream` },
           },
         },
-      },
+        update: {
+          username,
+          imageUrl,
+        },
+      });
+    } else if (event.type === "user.deleted") {
+      const user = await db.user.findUnique({
+        where: { externalUserId: data.id },
+        select: { id: true },
+      });
+
+      if (user) {
+        // Use the internal database ID: LiveKit room names are not Clerk IDs.
+        await resetIngresses(user.id);
+        await db.user.deleteMany({
+          where: { externalUserId: data.id },
+        });
+      }
+    }
+  } catch (error) {
+    // Return a retryable error so Clerk can redeliver events after outages.
+    console.error("Clerk webhook processing failed", {
+      eventType: event.type,
+      error,
     });
+    return new Response("Webhook processing failed", { status: 500 });
   }
 
-  if (eventType === "user.updated") {
-    await db.user.update({
-      where: {
-        externalUserId: payload.data.id,
-      },
-      data: {
-        username: payload.data.username,
-        imageUrl: payload.data.image_url,
-      },
-    });
-  }
-
-  if (eventType === "user.deleted") {
-    await resetIngresses(payload.data.id);
-
-    await db.user.delete({
-      where: {
-        externalUserId: payload.data.id,
-      },
-    });
-  }
-
-  return new Response("", { status: 200 });
+  return new Response(null, { status: 200 });
 }

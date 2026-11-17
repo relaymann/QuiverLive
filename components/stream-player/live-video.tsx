@@ -15,7 +15,7 @@ export function LiveVideo({ participant }: { participant: Participant }) {
 
   const onVolumeChange = (value: number) => {
     setVolume(+value);
-    if (videoRef?.current) {
+    if (videoRef.current) {
       videoRef.current.muted = value === 0;
       videoRef.current.volume = +value * 0.01;
     }
@@ -23,10 +23,9 @@ export function LiveVideo({ participant }: { participant: Participant }) {
 
   const toggleMute = () => {
     const isMuted = volume === 0;
-
     setVolume(isMuted ? 50 : 0);
 
-    if (videoRef?.current) {
+    if (videoRef.current) {
       videoRef.current.muted = !isMuted;
       videoRef.current.volume = isMuted ? 0.5 : 0;
     }
@@ -38,30 +37,41 @@ export function LiveVideo({ participant }: { participant: Participant }) {
 
   const toggleFullscreen = () => {
     if (isFullscreen) {
-      document.exitFullscreen();
-    } else if (wrapperRef?.current) {
-      wrapperRef.current.requestFullscreen();
+      void document.exitFullscreen();
+    } else if (wrapperRef.current) {
+      void wrapperRef.current.requestFullscreen();
     }
   };
 
   const handleFullscreenChange = () => {
-    const isCurrentlyFullscreen = document.fullscreenElement !== null;
-    setIsFullscreen(isCurrentlyFullscreen);
+    setIsFullscreen(document.fullscreenElement !== null);
   };
 
   useEventListener("fullscreenchange", handleFullscreenChange, wrapperRef);
 
-  useTracks([Track.Source.Camera, Track.Source.Microphone])
-    .filter((track) => track.participant.identity === participant.identity)
-    .forEach((track) => {
-      if (videoRef.current) {
-        track.publication.track?.attach(videoRef.current);
-      }
-    });
+  const tracks = useTracks([
+    Track.Source.Camera,
+    Track.Source.Microphone,
+  ]).filter((track) => track.participant.identity === participant.identity);
+
+  useEffect(() => {
+    const element = videoRef.current;
+    if (!element) return;
+
+    const attachedTracks = tracks
+      .map((reference) => reference.publication.track)
+      .filter((track): track is NonNullable<typeof track> => !!track);
+
+    attachedTracks.forEach((track) => track.attach(element));
+
+    return () => {
+      attachedTracks.forEach((track) => track.detach(element));
+    };
+  }, [tracks]);
 
   return (
     <div ref={wrapperRef} className="relative h-full flex">
-      <video ref={videoRef} width="100%" />
+      <video ref={videoRef} width="100%" playsInline />
       <div className="absolute top-0 h-full w-full opacity-0 hover:opacity-100 hover:transition-all">
         <div className="absolute bottom-0 flex h-14 w-full items-center justify-between bg-gradient-to-r from-neutral-900 px-4">
           <VolumeControl

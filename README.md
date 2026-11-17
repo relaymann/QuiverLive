@@ -1,98 +1,59 @@
-# FullStack Twitch Clone: Next.js 14, Livestreaming, React, Prisma, Stripe, Tailwind, MySQL & TypeScript
+# SchoolStream
 
-Credits: [Antonio Erdeljac](https://github.com/AntonioErdeljac)
+SchoolStream is a Twitch-style livestreaming platform focused on a lightweight, accessible experience for school Chromebooks.
 
-Key Features:
+## Current stack
 
-- 📡 Streaming using RTMP / WHIP protocols
-- 🌐 Generating ingress
-- 🔗 Connecting Next.js app to OBS
-- 🔐 Authentication
-- 📸 Thumbnail upload with Uploadthing
-- 👀 Live viewer count
-- 🚦 Live statuses
-- 💬 Real-time chat using sockets
-- 🎨 Unique color for each viewer in chat
-- 👥 Following system
-- 🚫 Blocking system
-- 👢 Kicking participants from a stream in real-time
-- 🎛️ Streamer / Creator Dashboard
-- 🐢 Slow chat mode
-- 🔒 Followers only chat mode
-- 📴 Enable / Disable chat
-- 🔽 Collapsible layout (hide sidebars, chat etc, theatre mode etc.)
-- 📚 Sidebar following & recommendations tab
-- 🏠 Home page recommending streams, sorted by live first
-- 🔍 Search results page with a different layout
-- 🔄 Syncing user information to our DB using Webhooks
-- 📡 Syncing live status information to our DB using Webhooks
-- 🤝 Community tab
-- 🎨 Beautiful design
-- ⚡ Blazing fast application
-- 📄 SSR (Server-Side Rendering)
-- 🗺️ Grouped routes & layouts
-- 🗃️ MySQL DB with PlanetScale
+- Next.js App Router and React
+- Clerk authentication
+- Prisma with MySQL
+- LiveKit for real-time audio/video and chat transport
+- UploadThing for stream thumbnails
 
-### Prerequisites
+## Local development
 
-**Node version 18.17 or later**
+1. Install Node.js (use the current LTS release) and npm.
+2. Install dependencies with `npm install`.
+3. Copy `.env.example` to `.env.local` and fill in the required credentials.
+4. Generate the Prisma client with `npx prisma generate`.
+5. Apply your database schema using your configured Prisma migration/deployment workflow.
+6. Start the development server with `npm run dev`.
 
-### Cloning the Repository
+## Deploying to Vercel
 
-```shell
-git clone https://github.com/nayak-nirmalya/twitch-clone.git
-```
+The intended production host is **Vercel**. This is a Next.js application and should be deployed as a standard Vercel project:
 
-### Install Packages
+1. Import `relaymann/SchoolStream` into Vercel.
+2. Select the `development` branch for preview deployments while development is in progress. Use the production branch only after the release is ready.
+3. Keep the framework preset as Next.js. The standard build command is `npm run build`; the output directory should remain managed by Next.js.
+4. Configure the environment variables below for the appropriate Vercel environments.
+5. Configure Clerk's production instance and webhook endpoint at `https://YOUR_DOMAIN/api/webhooks/clerk`.
+6. Configure LiveKit's webhook endpoint at `https://YOUR_DOMAIN/api/webhooks/livekit`.
+7. Add the deployed domain to Clerk's allowed origins/redirect settings and configure the public LiveKit WebSocket URL.
 
-```shell
-npm i
-```
+### Required environment variables
 
-### Setup .env File
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `CLERK_WEBHOOK_SECRET`
+- `DATABASE_URL`
+- `LIVEKIT_API_URL`
+- `LIVEKIT_API_KEY`
+- `LIVEKIT_API_SECRET`
+- `NEXT_PUBLIC_LIVEKIT_WS_URL`
+- `UPLOADTHING_SECRET`
+- `UPLOADTHING_APP_ID`
 
-```js
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
-CLERK_SECRET_KEY=
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
-NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
-CLERK_WEBHOOK_SECRET=
+The `NEXT_PUBLIC_CLERK_*` sign-in/sign-up URL variables in `.env.example` are optional if the defaults are acceptable.
 
-DATABASE_URL=
+### Production notes
 
-LIVEKIT_API_URL=
-LIVEKIT_API_KEY=
-LIVEKIT_API_SECRET=
-NEXT_PUBLIC_LIVEKIT_WS_URL=
+- Use a managed MySQL database with connection pooling suitable for serverless workloads. Keep the connection string private and configure it separately for Preview and Production.
+- LiveKit is an external media service; Vercel does not provide the media ingress/egress infrastructure.
+- Never expose LiveKit API secrets, Clerk secret keys, webhook secrets, database credentials, or stream keys in client-side code.
+- Configure webhook secrets independently for each environment.
+- Do not deploy production until the authentication, webhook, chat authorization, database, and real-device streaming tests pass.
 
-UPLOADTHING_SECRET=
-UPLOADTHING_APP_ID=
-```
+## Project status
 
-### Setup Prisma
-
-Add Database URL (PlanetScale/MySQL)
-
-```shell
-npx prisma generate
-npx prisma db push
-```
-
-### Start the App
-
-```shell
-npm run dev
-```
-
-## Available Commands
-
-Running commands with npm `npm run [command]`
-
-| command | description                              |
-| :------ | :--------------------------------------- |
-| `dev`   | Starts a development instance of the app |
-| `lint`  | Run typescript lint check with eslint    |
-| `build` | Start building app for deployment        |
-| `start` | Run build version of app                 |
+This repository began as a Twitch-style starter. SchoolStream development is actively replacing inherited branding, tightening server-side authorization, and preparing the application for reliable Vercel deployment. Features are not considered production-ready until they have been tested against configured external services.
