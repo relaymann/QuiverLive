@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { createLocalScreenTracks, createLocalTracks, LocalTrack, LocalVideoTrack, Room, Track } from "livekit-client";
+import { createLocalScreenTracks, createLocalTracks, LocalTrack, LocalVideoTrack, Room, RoomEvent, Track } from "livekit-client";
 import { Camera, MonitorUp, Square } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { assertCanStartBrowserBroadcast } from "@/actions/token";
 
-type BroadcastStatus = "idle" | "starting" | "live";
+type BroadcastStatus = "idle" | "starting" | "live" | "reconnecting";
 type Quality = "360p" | "540p" | "720p";
 const DIMENSIONS: Record<Quality, { width: number; height: number }> = {
   "360p": { width: 640, height: 360 }, "540p": { width: 960, height: 540 }, "720p": { width: 1280, height: 720 },
@@ -32,14 +32,22 @@ export function BrowserBroadcast({ token, hostIdentity }: { token: string; hostI
   const stopBroadcast = useCallback(async () => {
     const room = roomRef.current;
     const tracks = tracksRef.current;
+    // Clear refs before disconnecting so the Disconnected event does not treat
+    // an intentional stop as an unexpected network failure.
+    roomRef.current = null;
+    tracksRef.current = [];
     tracks.forEach((track) => { if (room) void room.localParticipant.unpublishTrack(track); track.stop(); });
     if (room) await room.disconnect();
-    roomRef.current = null; tracksRef.current = []; setPreviewTrack(null); setStatus("idle");
+    setPreviewTrack(null);
+    setStatus("idle");
   }, []);
 
   useEffect(() => () => {
     const room = roomRef.current;
-    tracksRef.current.forEach((track) => { if (room) void room.localParticipant.unpublishTrack(track); track.stop(); });
+    roomRef.current = null;
+    const tracks = tracksRef.current;
+    tracksRef.current = [];
+    tracks.forEach((track) => { if (room) void room.localParticipant.unpublishTrack(track); track.stop(); });
     if (room) void room.disconnect();
   }, []);
 
@@ -59,19 +67,41 @@ export function BrowserBroadcast({ token, hostIdentity }: { token: string; hostI
       await assertCanStartBrowserBroadcast(hostIdentity);
       room = new Room({ adaptiveStream: true, dynacast: true });
       roomRef.current = room;
+      room.on(RoomEvent.Reconnecting, () => {
+        if (roomRef.current === room) setStatus("reconnecting");
+      });
+      room.on(RoomEvent.Reconnected, () => {
+        if (roomRef.current === room) setStatus("live");
+      });
+      room.on(RoomEvent.Disconnected, () => {
+        if (roomRef.current !== room) return;
+        roomRef.current = null;
+        tracksRef.current = [];
+        tracks.forEach((track) => track.stop());
+        setPreviewTrack(null);
+        setStatus("idle");
+        toast.error("Your broadcast connection was lost. Please start again.");
+      });
       await room.connect(serverUrl, token);
       for (const track of tracks) await room.localParticipant.publishTrack(track);
       const videoTrack = tracks.find((track) => track.kind === Track.Kind.Video) as LocalVideoTrack | undefined;
-      if (videoTrack) {
-        setPreviewTrack(videoTrack);
-        videoTrack.mediaStreamTrack.addEventListener("ended", () => void stopBroadcast(), { once: true });
-      }
+      if (videoTrack) setPreviewTrack(videoTrack);
+      // Stop the whole broadcast if any captured source ends, including a
+      // microphone or screen-share audio track ending independently.
+      tracks.forEach((track) => {
+        track.mediaStreamTrack.addEventListener("ended", () => {
+          if (roomRef.current === room) void stopBroadcast();
+        }, { once: true });
+      });
       setStatus("live");
       toast.success(mode === "camera" ? "Camera is live" : "Screen is live");
     } catch (error) {
       tracks.forEach((track) => track.stop());
+      if (roomRef.current === room) roomRef.current = null;
+      tracksRef.current = [];
       if (room) await room.disconnect();
-      roomRef.current = null; tracksRef.current = []; setPreviewTrack(null); setStatus("idle");
+      setPreviewTrack(null);
+      setStatus("idle");
       console.error("Browser broadcast failed", error);
       toast.error(error instanceof Error ? error.message : "Unable to start your broadcast");
     }
@@ -80,7 +110,7 @@ export function BrowserBroadcast({ token, hostIdentity }: { token: string; hostI
   return <section className="rounded-xl border bg-background p-4 space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="font-semibold">Browser broadcasting</h2><p className="text-sm text-muted-foreground">Go live with your camera or share your screen. No OBS required.</p></div>
-      <span className={status === "live" ? "text-xs font-semibold text-rose-500" : "text-xs text-muted-foreground"} aria-live="polite">{status === "live" ? "LIVE" : status === "starting" ? "Connecting…" : "Offline"}</span>
+      <span className={status === "live" ? "text-xs font-semibold text-rose-500" : "text-xs text-muted-foreground"} aria-live="polite">{status === "live" ? "LIVE" : status === "reconnecting" ? "Reconnecting…" : status === "starting" ? "Connecting…" : "Offline"}</span>
     </div>
     {previewTrack && <div className="overflow-hidden rounded-lg bg-black aspect-video"><video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-contain" /></div>}
     <div className="flex flex-wrap items-end gap-3">
