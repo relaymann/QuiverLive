@@ -131,3 +131,33 @@ export const createBroadcasterToken = async (hostIdentity: string) => {
 
   return token.toJwt();
 };
+
+/**
+ * Prevents the browser broadcaster from replacing an already-live RTMP/WHIP
+ * source that is publishing with the same participant identity.
+ */
+export const assertCanStartBrowserBroadcast = async (hostIdentity: string) => {
+  const self = await db.user.findUnique({
+    where: { externalUserId: (await currentUser())?.id ?? "" },
+    select: { id: true },
+  });
+
+  if (!self || self.id !== hostIdentity) {
+    throw new Error("Only the channel owner can broadcast");
+  }
+
+  const stream = await db.stream.findUnique({
+    where: { userId: self.id },
+    select: { isLive: true },
+  });
+
+  if (!stream) {
+    throw new Error("No stream is configured for this account");
+  }
+
+  if (stream.isLive) {
+    throw new Error("Your channel is already live. Stop the other stream source first.");
+  }
+
+  return true;
+};

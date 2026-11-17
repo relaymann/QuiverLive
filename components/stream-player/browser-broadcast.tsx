@@ -13,10 +13,17 @@ import { Camera, MonitorUp, Square } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { assertCanStartBrowserBroadcast } from "@/actions/token";
 
 type BroadcastStatus = "idle" | "starting" | "live";
 
-export function BrowserBroadcast({ token }: { token: string }) {
+export function BrowserBroadcast({
+  token,
+  hostIdentity,
+}: {
+  token: string;
+  hostIdentity: string;
+}) {
   const roomRef = useRef<Room | null>(null);
   const tracksRef = useRef<LocalTrack[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -91,6 +98,9 @@ export function BrowserBroadcast({ token }: { token: string }) {
         throw new Error("LiveKit is not configured for browser broadcasting");
       }
 
+      tracksRef.current = tracks;
+      await assertCanStartBrowserBroadcast(hostIdentity);
+
       room = new Room();
       roomRef.current = room;
       await room.connect(serverUrl, token);
@@ -99,7 +109,6 @@ export function BrowserBroadcast({ token }: { token: string }) {
         await room.localParticipant.publishTrack(track);
       }
 
-      tracksRef.current = tracks;
       const videoTrack = tracks.find(
         (track) => track.kind === Track.Kind.Video
       ) as LocalVideoTrack | undefined;

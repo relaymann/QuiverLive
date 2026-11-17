@@ -22,7 +22,7 @@ export default async function CreatorPage({
 
   return (
     <div className="h-full space-y-4 p-4">
-      <BrowserBroadcast token={broadcasterToken} />
+      <BrowserBroadcast token={broadcasterToken} hostIdentity={user.id} />
       <div className="min-h-0">
         <StreamPlayer user={user} stream={user.stream} isFollowing={true} />
       </div>
