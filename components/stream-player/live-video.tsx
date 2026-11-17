@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Participant, Track } from "livekit-client";
 import { useTracks } from "@livekit/components-react";
 import { useEventListener } from "usehooks-ts";
@@ -49,23 +49,27 @@ export function LiveVideo({ participant }: { participant: Participant }) {
 
   useEventListener("fullscreenchange", handleFullscreenChange, wrapperRef);
 
-  const tracks = useTracks([
+  const trackReferences = useTracks([
     Track.Source.Camera,
     Track.Source.Microphone,
-  ]).filter((track) => track.participant.identity === participant.identity);
+  ]);
+  const tracks = useMemo(
+    () =>
+      trackReferences
+        .filter((reference) => reference.participant.identity === participant.identity)
+        .map((reference) => reference.publication.track)
+        .filter((track): track is Track => !!track),
+    [trackReferences, participant.identity]
+  );
 
   useEffect(() => {
     const element = videoRef.current;
     if (!element) return;
 
-    const attachedTracks = tracks
-      .map((reference) => reference.publication.track)
-      .filter((track): track is NonNullable<typeof track> => !!track);
-
-    attachedTracks.forEach((track) => track.attach(element));
+    tracks.forEach((track) => track.attach(element));
 
     return () => {
-      attachedTracks.forEach((track) => track.detach(element));
+      tracks.forEach((track) => track.detach(element));
     };
   }, [tracks]);
 

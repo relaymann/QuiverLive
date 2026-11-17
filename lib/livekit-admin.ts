@@ -24,15 +24,15 @@ export const resetIngresses = async (internalUserId: string) => {
   const roomService = new RoomServiceClient(apiUrl, apiKey, apiSecret);
 
   const ingresses = await ingressClient.listIngress({ roomName: internalUserId });
-  const rooms = await roomService.listRooms([internalUserId]);
-
-  for (const room of rooms) {
-    await roomService.deleteRoom(room.name);
-  }
-
+  // Stop ingress resources before removing their destination room.
   for (const ingress of ingresses) {
     if (ingress.ingressId) {
       await ingressClient.deleteIngress(ingress.ingressId);
     }
+  }
+
+  const rooms = await roomService.listRooms([internalUserId]);
+  for (const room of rooms) {
+    await roomService.deleteRoom(room.name);
   }
 };
