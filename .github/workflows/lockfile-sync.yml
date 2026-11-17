@@ -3,7 +3,9 @@ name: SchoolStream lockfile sync
 on:
   push:
     branches: [development]
-    paths: [package.json]
+    paths:
+      - package.json
+      - .github/workflows/lockfile-sync.yml
 
 permissions:
   contents: write
@@ -22,8 +24,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Regenerate package lock
-        run: npm install --package-lock-only --ignore-scripts
+      - name: Regenerate and audit-fix lockfile
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm audit fix --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Commit lockfile when changed
         run: |
           if git diff --quiet -- package-lock.json; then
@@ -33,5 +37,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package-lock.json
-          git commit -m "Refresh dependency lockfile"
+          git commit -m "Refresh dependency lockfile and audit fixes"
+          git fetch origin development
+          git rebase origin/development
           git push origin development
