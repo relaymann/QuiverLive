@@ -15,24 +15,26 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: mysql://schoolstream:schoolstream@127.0.0.1:3306/schoolstream
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_c2Nob29sc3RyZWFtLmNvbSQ
+      CLERK_SECRET_KEY: sk_test_schoolstream_ci_placeholder
+      NEXT_PUBLIC_LIVEKIT_WS_URL: wss://example.livekit.cloud
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-
+      - name: Refresh lockfile metadata before clean install
+        run: npm install --package-lock-only --ignore-scripts
       - name: Install dependencies
         run: npm ci
-
       - name: Validate Prisma schema
         run: npx prisma validate
-
+      - name: Run dependency security audit
+        run: npm audit --audit-level=high
       - name: Run ESLint
         run: npm run lint
-
       - name: Run TypeScript checks
         run: npm run typecheck
+      - name: Run production build
+        run: npm run build
