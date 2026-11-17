@@ -2,6 +2,12 @@
 
 SchoolStream is a Twitch-style livestreaming platform focused on a lightweight, accessible experience for school Chromebooks.
 
+## Upstream attribution
+
+This project currently builds on the starter at [nayak-nirmalya/twitch-clone](https://github.com/nayak-nirmalya/twitch-clone), whose README credits [Antonio Erdeljac](https://github.com/AntonioErdeljac). SchoolStream is an independent fork and is being substantially modified.
+
+The upstream repository did not contain a LICENSE file when checked. Confirm the applicable permissions and licensing before distributing or operating a public derivative service.
+
 ## Current stack
 
 - Next.js App Router and React
