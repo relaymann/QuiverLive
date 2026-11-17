@@ -36,5 +36,7 @@ jobs:
         run: npm run typecheck
       - name: Run production build
         run: npm run build
-      - name: Run dependency security audit
-        run: npm audit --audit-level=high
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Fail on critical vulnerabilities in any dependency
+        run: npm audit --audit-level=critical

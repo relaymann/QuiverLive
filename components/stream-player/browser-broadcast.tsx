@@ -23,9 +23,10 @@ export function BrowserBroadcast({ token, hostIdentity }: { token: string; hostI
   const [frameRate, setFrameRate] = useState(24);
 
   useEffect(() => {
-    if (!previewTrack || !videoRef.current) return;
-    previewTrack.attach(videoRef.current);
-    return () => { if (videoRef.current) previewTrack.detach(videoRef.current); };
+    const videoElement = videoRef.current;
+    if (!previewTrack || !videoElement) return;
+    previewTrack.attach(videoElement);
+    return () => { previewTrack.detach(videoElement); };
   }, [previewTrack]);
 
   const stopBroadcast = useCallback(async () => {

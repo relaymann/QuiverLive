@@ -30,12 +30,15 @@ export function Chat({ hostName, hostIdentity, viewerName, isFollowing, isChatEn
 
   useEffect(() => {
     const onDataReceived = (payload: Uint8Array, sender?: Participant) => {
+      // Only accept server-originated packets. This rejects messages sent by
+      // still-valid older client tokens that may have had data publishing.
+      if (sender) return;
       try {
         const packet = JSON.parse(new TextDecoder().decode(payload)) as Partial<ServerChatPacket>;
         if (typeof packet.id !== "string" || typeof packet.message !== "string" || typeof packet.timestamp !== "number") return;
         const item: SchoolStreamChatMessage = {
           id: packet.id, timestamp: new Date(packet.timestamp), message: packet.message,
-          from: { name: packet.senderName || sender?.name || "Viewer", identity: packet.senderId || sender?.identity },
+          from: { name: packet.senderName || "Viewer", identity: packet.senderId },
         };
         setMessages((current) => [...current.slice(-99), item]);
       } catch { /* Ignore unrelated LiveKit packets. */ }
@@ -48,12 +51,8 @@ export function Chat({ hostName, hostIdentity, viewerName, isFollowing, isChatEn
   const orderedMessages = useMemo(() => [...messages].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()), [messages]);
 
   const onSubmit = async () => {
-    try {
-      await sendChatMessage(hostIdentity, value);
-      setValue("");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to send your message");
-    }
+    try { await sendChatMessage(hostIdentity, value); setValue(""); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Unable to send your message"); }
   };
 
   return <div className="flex flex-col bg-background border-l border-b pt-0 h-[calc(100vh-80px)]">
