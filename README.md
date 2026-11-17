@@ -16,14 +16,22 @@ The upstream repository did not contain a LICENSE file when checked. Confirm the
 - LiveKit for real-time audio/video and chat transport
 - UploadThing for stream thumbnails
 
+## Broadcasting
+
+- Browser camera and microphone broadcasting
+- Browser screen sharing, including shared-tab audio where the browser supports it
+- RTMP and WHIP ingress for OBS and compatible broadcasting tools
+- A channel can use one publishing source at a time; the server checks for an already-live source before starting browser broadcasting
+
 ## Local development
 
 1. Install Node.js (use the current LTS release) and npm.
 2. Install dependencies with `npm install`.
 3. Copy `.env.example` to `.env.local` and fill in the required credentials.
 4. Generate the Prisma client with `npx prisma generate`.
-5. Apply your database schema using your configured Prisma migration/deployment workflow.
-6. Start the development server with `npm run dev`.
+5. Apply the Prisma schema to your MySQL database with `npx prisma db push` (or use your established migration workflow).
+6. Run `npm run typecheck` and `npm run lint`.
+7. Start the development server with `npm run dev`.
 
 ## Deploying to Vercel
 
