@@ -27,24 +27,51 @@ export async function POST(req: Request) {
     return new Response("Invalid webhook signature", { status: 400 });
   }
 
-  const ingressId = event.ingressInfo?.ingressId;
-  if (
-    ingressId &&
-    (event.event === "ingress_started" || event.event === "ingress_ended")
-  ) {
-    try {
+  try {
+    const ingressId = event.ingressInfo?.ingressId;
+    if (
+      ingressId &&
+      (event.event === "ingress_started" || event.event === "ingress_ended")
+    ) {
       await db.stream.updateMany({
         where: { ingressId },
         data: { isLive: event.event === "ingress_started" },
       });
-    } catch (error) {
-      console.error("LiveKit webhook processing failed", {
-        eventType: event.event,
-        ingressId,
-        error,
-      });
-      return new Response("Webhook processing failed", { status: 500 });
     }
+
+    // Browser broadcasts and RTMP/WHIP ingress use the channel's internal
+    // user ID as the publishing participant identity. Viewer identities are
+    // different, so they cannot accidentally toggle a channel's live state.
+    const roomName = event.room?.name;
+    const participantIdentity = event.participant?.identity;
+
+    if (
+      roomName &&
+      participantIdentity === roomName &&
+      event.event === "participant_joined"
+    ) {
+      await db.stream.updateMany({
+        where: { userId: roomName },
+        data: { isLive: true },
+      });
+    }
+
+    if (
+      roomName &&
+      participantIdentity === roomName &&
+      event.event === "participant_left"
+    ) {
+      await db.stream.updateMany({
+        where: { userId: roomName },
+        data: { isLive: false },
+      });
+    }
+  } catch (error) {
+    console.error("LiveKit webhook processing failed", {
+      eventType: event.event,
+      error,
+    });
+    return new Response("Webhook processing failed", { status: 500 });
   }
 
   return new Response("Success", { status: 200 });

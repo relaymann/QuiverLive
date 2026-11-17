@@ -88,3 +88,46 @@ export const createViewerToken = async (hostIdentity: string) => {
 
   return token.toJwt();
 };
+
+/**
+ * Creates a publishing token only for the authenticated owner of this stream.
+ * Its identity matches the RTMP/WHIP ingress participant so viewers can use
+ * the same host participant lookup for both broadcasting methods.
+ */
+export const createBroadcasterToken = async (hostIdentity: string) => {
+  const self = await db.user.findUnique({
+    where: { externalUserId: (await currentUser())?.id ?? "" },
+    select: { id: true, username: true },
+  });
+
+  if (!self || self.id !== hostIdentity) {
+    throw new Error("Only the channel owner can start a browser broadcast");
+  }
+
+  const stream = await db.stream.findUnique({
+    where: { userId: self.id },
+    select: { id: true },
+  });
+
+  if (!stream) {
+    throw new Error("No stream is configured for this account");
+  }
+
+  const token = new AccessToken(
+    process.env.LIVEKIT_API_KEY,
+    process.env.LIVEKIT_API_SECRET,
+    {
+      identity: self.id,
+      name: self.username,
+    }
+  );
+
+  token.addGrant({
+    room: self.id,
+    roomJoin: true,
+    canPublish: true,
+    canPublishData: false,
+  });
+
+  return token.toJwt();
+};
