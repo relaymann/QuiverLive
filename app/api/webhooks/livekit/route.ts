@@ -1,4 +1,4 @@
-import { WebhookReceiver } from "livekit-server-sdk";
+import { WebhookReceiver, type WebhookEvent } from "livekit-server-sdk";
 
 import { db } from "@/lib/db";
 
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
   const body = await req.text();
 
-  let event;
+  let event: WebhookEvent;
   try {
     const receiver = new WebhookReceiver(apiKey, apiSecret);
     event = receiver.receive(body, authorization);

@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [development, master]
 
+concurrency:
+  group: schoolstream-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
