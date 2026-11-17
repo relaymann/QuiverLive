@@ -1,6 +1,5 @@
 import React from "react";
 import Link from "next/link";
-import { User } from "@prisma/client";
 import { formatDistanceToNow } from "date-fns";
 
 import { Thumbnail, ThumbnailSkeleton } from "@/components/thumbnail";
@@ -16,7 +15,7 @@ export function ResultCard({
     thumbnailUrl: string | null;
     isLive: boolean;
     updatedAt: Date;
-    user: User;
+    user: { username: string; imageUrl: string };
   };
 }) {
   return (

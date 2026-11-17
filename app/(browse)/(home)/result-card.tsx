@@ -1,6 +1,5 @@
 import React from "react";
 import Link from "next/link";
-import { User } from "@prisma/client";
 
 import { Thumbnail, ThumbnailSkeleton } from "@/components/thumbnail";
 import { UserAvatar, UserAvatarSkeleton } from "@/components/user-avatar";
@@ -10,7 +9,7 @@ export function ResultCard({
   data,
 }: {
   data: {
-    user: User;
+    user: { username: string; imageUrl: string };
     isLive: boolean;
     name: string;
     thumbnailUrl: string | null;
