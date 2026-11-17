@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { User } from "@prisma/client";
 
 import { useSidebar } from "@/store/use-sidebar";
 
@@ -10,10 +9,14 @@ import { UserItem, UserItemSkeleton } from "./user-item";
 export function Recommended({
   data,
 }: {
-  data: (User & { stream: { isLive: boolean } | null })[];
+  data: {
+    id: string;
+    username: string;
+    imageUrl: string;
+    stream: { isLive: boolean } | null;
+  }[];
 }) {
   const { collapsed } = useSidebar((state) => state);
-
   const showLabel = !collapsed && data.length > 0;
 
   return (

@@ -2,51 +2,41 @@ import { db } from "@/lib/db";
 import { getSelf } from "@/lib/auth-service";
 
 export const getStreams = async () => {
-  let userId;
+  let userId: string | null = null;
 
   try {
     const self = await getSelf();
     userId = self.id;
   } catch {
-    userId = null;
+    // Public visitors can browse streams without an account.
   }
 
-  let streams = [];
-
-  if (userId) {
-    streams = await db.stream.findMany({
-      where: {
-        user: {
-          NOT: {
-            blocking: {
-              some: {
-                blockedId: userId,
+  return db.stream.findMany({
+    where: userId
+      ? {
+          user: {
+            NOT: {
+              blocking: {
+                some: { blockedId: userId },
               },
             },
           },
+        }
+      : undefined,
+    select: {
+      thumbnailUrl: true,
+      name: true,
+      isLive: true,
+      id: true,
+      user: {
+        select: {
+          id: true,
+          username: true,
+          imageUrl: true,
         },
       },
-      select: {
-        thumbnailUrl: true,
-        name: true,
-        isLive: true,
-        user: true,
-        id: true,
-      },
-      orderBy: [{ isLive: "desc" }, { updatedAt: "desc" }],
-    });
-  } else {
-    streams = await db.stream.findMany({
-      select: {
-        thumbnailUrl: true,
-        name: true,
-        isLive: true,
-        user: true,
-        id: true,
-      },
-      orderBy: [{ isLive: "desc" }, { updatedAt: "desc" }],
-    });
-  }
-
-  return streams;
+    },
+    orderBy: [{ isLive: "desc" }, { updatedAt: "desc" }],
+    take: 40,
+  });
 };

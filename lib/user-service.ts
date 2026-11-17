@@ -1,13 +1,10 @@
 import { db } from "@/lib/db";
 
 export const getUserByUsername = async (username: string) => {
-  const user = await db.user.findUnique({
-    where: {
-      username,
-    },
+  return db.user.findUnique({
+    where: { username },
     select: {
       id: true,
-      externalUserId: true,
       username: true,
       bio: true,
       imageUrl: true,
@@ -23,23 +20,24 @@ export const getUserByUsername = async (username: string) => {
         },
       },
       _count: {
+        select: { followedBy: true },
+      },
+    },
+  });
+};
+
+export const getUserById = async (id: string) => {
+  return db.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      username: true,
+      stream: {
         select: {
-          followedBy: true,
+          isChatEnabled: true,
+          isChatFollowersOnly: true,
         },
       },
     },
   });
-
-  return user;
-};
-
-export const getUserById = async (id: string) => {
-  const user = await db.user.findUnique({
-    where: {
-      id,
-    },
-    include: { stream: true },
-  });
-
-  return user;
 };

@@ -2,83 +2,48 @@ import { db } from "@/lib/db";
 import { getSelf } from "@/lib/auth-service";
 
 export const getSearch = async (term?: string) => {
-  let userId;
+  const normalizedTerm = term?.trim().slice(0, 100);
+  if (!normalizedTerm) return [];
 
+  let userId: string | null = null;
   try {
     const self = await getSelf();
     userId = self.id;
   } catch {
-    userId = null;
+    // Search remains available to public visitors.
   }
 
-  let streams = [];
-
-  if (userId) {
-    streams = await db.stream.findMany({
-      where: {
-        user: {
-          NOT: {
-            blocking: {
-              some: {
-                blockedId: userId,
+  return db.stream.findMany({
+    where: {
+      user: userId
+        ? {
+            NOT: {
+              blocking: {
+                some: { blockedId: userId },
               },
             },
-          },
+          }
+        : undefined,
+      OR: [
+        { name: { contains: normalizedTerm } },
+        { user: { username: { contains: normalizedTerm } } },
+      ],
+    },
+    select: {
+      user: {
+        select: {
+          id: true,
+          username: true,
+          imageUrl: true,
         },
-        OR: [
-          {
-            name: {
-              contains: term,
-            },
-          },
-          {
-            user: {
-              username: {
-                contains: term,
-              },
-            },
-          },
-        ],
       },
-      select: {
-        user: true,
-        id: true,
-        name: true,
-        isLive: true,
-        thumbnailUrl: true,
-        updatedAt: true,
-      },
-      orderBy: [{ isLive: "desc" }, { updatedAt: "desc" }],
-    });
-  } else {
-    streams = await db.stream.findMany({
-      where: {
-        OR: [
-          {
-            name: {
-              contains: term,
-            },
-          },
-          {
-            user: {
-              username: {
-                contains: term,
-              },
-            },
-          },
-        ],
-      },
-      select: {
-        user: true,
-        id: true,
-        name: true,
-        isLive: true,
-        thumbnailUrl: true,
-        updatedAt: true,
-      },
-      orderBy: [{ isLive: "desc" }, { updatedAt: "desc" }],
-    });
-  }
-
-  return streams;
+      id: true,
+      name: true,
+      isLive: true,
+      thumbnailUrl: true,
+      updatedAt: true,
+    },
+    orderBy: [{ isLive: "desc" }, { updatedAt: "desc" }],
+    take: 40,
+  });
 };
