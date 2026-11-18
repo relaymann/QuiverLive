@@ -14,7 +14,8 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: mysql://quiverlive:quiverlive@127.0.0.1:3306/quiverlive
+      DATABASE_URL: postgresql://quiverlive:quiverlive@127.0.0.1:5432/quiverlive
+      DIRECT_URL: postgresql://quiverlive:quiverlive@127.0.0.1:5432/quiverlive
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_cXVpdmVybGl2ZS5jb20k
       CLERK_SECRET_KEY: sk_test_quiverlive_ci_placeholder
       NEXT_PUBLIC_LIVEKIT_WS_URL: wss://example.livekit.cloud

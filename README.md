@@ -12,7 +12,7 @@ QuiverLive is a general-purpose livestreaming platform for creators and communit
 ## Current stack
 - Next.js 15.5 and React 18
 - Clerk authentication
-- Prisma with MySQL
+- Prisma with Supabase PostgreSQL
 - LiveKit for real-time audio/video, RTMP/WHIP ingress, and server-relayed chat
 - UploadThing for stream thumbnails
 
@@ -26,7 +26,7 @@ The browser flow reserves the channel before publishing, uses a short-lived publ
 ### OBS and encoder support
 Creators can configure an RTMP or WHIP ingest endpoint from the channel's Keys & URLs page and connect OBS or another compatible encoder. RTMP uses LiveKit ingress transcoding presets; WHIP uses bypass transcoding. Keep stream keys private and regenerate them if they are exposed.
 
-Browser and encoder broadcasting are mutually exclusive per channel. The server atomically reserves a broadcast source in MySQL, and LiveKit webhook handlers update live/offline state only for the matching source identity and source type. Switching to browser broadcasting invalidates any previously configured idle ingress; create a new ingress from Keys & URLs when switching back to OBS/WHIP.
+Browser and encoder broadcasting are mutually exclusive per channel. The server atomically reserves a broadcast source in PostgreSQL, and LiveKit webhook handlers update live/offline state only for the matching source identity and source type. Switching to browser broadcasting invalidates any previously configured idle ingress; create a new ingress from Keys & URLs when switching back to OBS/WHIP.
 
 ## Chat and moderation
 Chat messages are relayed by the server. Viewer tokens do not grant client data publishing, preventing browser clients from bypassing server checks by sending raw LiveKit packets.
@@ -49,7 +49,7 @@ Channel owners can timeout a connected viewer for five minutes or ban a register
 2. Run npm ci.
 3. Copy .env.example to .env.local and configure credentials privately.
 4. Run npx prisma generate.
-5. Apply the schema to MySQL with npx prisma db push for development, or use reviewed migrations for production.
+5. Generate the PostgreSQL baseline with npm run db:generate-baseline, review and commit the generated migration, then apply it to Supabase with npm run db:migrate:deploy. Do not apply the baseline to a populated database or use it as a substitute for importing existing records.
 6. Run npm run typecheck, npm run lint, and npm run build.
 7. Start with npm run dev.
 
@@ -57,7 +57,8 @@ Channel owners can timeout a connected viewer for five minutes or ban a register
 - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 - CLERK_SECRET_KEY
 - CLERK_WEBHOOK_SECRET
-- DATABASE_URL
+- DATABASE_URL (Supabase transaction-pooler URL for application traffic)
+- DIRECT_URL (Supabase direct or session-pooler URL for Prisma migrations)
 - LIVEKIT_API_URL (server-side HTTPS API URL)
 - LIVEKIT_API_KEY
 - LIVEKIT_API_SECRET
@@ -68,7 +69,7 @@ Channel owners can timeout a connected viewer for five minutes or ban a register
 LiveKit's server API URL and browser WebSocket URL are different values. Never expose API secrets, webhook secrets, database credentials, or stream keys in client-side code or public repositories.
 
 ## Deployment
-Vercel is the intended web host; LiveKit remains the separate media infrastructure. Do not deploy production until external-service and device checks pass. Configure Clerk and LiveKit webhooks at /api/webhooks/clerk and /api/webhooks/livekit on the deployed domain. Use a managed MySQL database with serverless-appropriate connection pooling.
+Vercel is the intended web host; LiveKit remains the separate media infrastructure. Do not deploy production until external-service and device checks pass. Configure Clerk and LiveKit webhooks at /api/webhooks/clerk and /api/webhooks/livekit on the deployed domain. Use Supabase PostgreSQL. Route application traffic through the Supabase transaction pooler and Prisma migrations through DIRECT_URL.
 
 ## Verification still required
 CI cannot replace tests against real accounts, media services, devices, and networks:

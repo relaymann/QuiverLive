@@ -24,8 +24,8 @@ export const getSearch = async (term?: string) => {
           }
         : undefined,
       OR: [
-        { name: { contains: normalizedTerm } },
-        { user: { username: { contains: normalizedTerm } } },
+        { name: { contains: normalizedTerm, mode: "insensitive" } },
+        { user: { username: { contains: normalizedTerm, mode: "insensitive" } } },
       ],
     },
     select: {

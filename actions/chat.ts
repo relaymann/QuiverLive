@@ -110,13 +110,15 @@ export const sendChatMessage = async (hostIdentity: string, rawMessage: string) 
 
   if (command === "!watchtime") {
     const rows = await db.$queryRaw<Array<{ totalSeconds: bigint | number }>>(Prisma.sql`
-      SELECT COALESCE(
-        SUM(TIMESTAMPDIFF(SECOND, \`startedAt\`, COALESCE(\`endedAt\`, CURRENT_TIMESTAMP))),
-        0
-      ) AS totalSeconds
-      FROM \`WatchSession\`
-      WHERE \`streamId\` = ${host.stream.id}
-        AND \`participantIdentity\` = ${self.id}
+      SELECT FLOOR(
+        COALESCE(
+          SUM(EXTRACT(EPOCH FROM (COALESCE("endedAt", CURRENT_TIMESTAMP) - "startedAt"))),
+          0
+        )
+      )::bigint AS "totalSeconds"
+      FROM "WatchSession"
+      WHERE "streamId" = ${host.stream.id}
+        AND "participantIdentity" = ${self.id}
     `);
     const totalSeconds = Math.max(0, Number(rows[0]?.totalSeconds ?? 0));
     outgoingMessage = `@${self.username} has watched @${host.username}'s channel for ${formatElapsed(totalSeconds)}.`;

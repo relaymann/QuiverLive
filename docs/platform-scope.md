@@ -3,7 +3,7 @@
 This is the full scope requested for QuiverLive. It separates persistence foundations from finished product workflows; a database model does not mean a feature is ready to use.
 
 ## Production reliability and security
-- Versioned MySQL migrations, backups, restore drills, rollback plans, and connection pooling.
+- Versioned PostgreSQL migrations, backups, restore drills, rollback plans, and connection pooling.
 - Centralized server-side ownership and role authorization for every creator/moderator action.
 - Signed, replay-safe, idempotent Clerk and LiveKit webhooks with stale-event protection.
 - Rate limits for chat, commands, follows, notifications, clips, uploads, redemptions, and sensitive account operations.
@@ -49,7 +49,7 @@ These are schema foundations only. UI, server workflows, authorization, media st
 The custom-command cooldown requires the nullable `ChatCommand.lastUsedAt` column. This repository does not yet have a versioned Prisma migration baseline, so this change is not represented as a standalone production migration. Apply and verify the schema with `npx prisma db push` only in a development database. Before production, establish a reviewed baseline and migration plan, then add the nullable `lastUsedAt` column to the existing `ChatCommand` table. Do not deploy this feature against a database that has not received the schema update.
 
 ## Release gates
-1. Review and apply a versioned migration against disposable MySQL; verify backup and restore.
+1. Review and apply a versioned migration against disposable PostgreSQL; verify backup and restore.
 2. Pass authorization matrix, abuse, and rate-limit tests.
 3. Pass webhook duplicate, replay, reorder, and outage tests.
 4. Pass browser, OBS RTMP, WHIP, playback, reconnect, and source-switch tests on real devices.

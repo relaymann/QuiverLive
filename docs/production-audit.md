@@ -28,7 +28,7 @@ QuiverLive is a general-purpose livestreaming platform for creators and communit
 - LiveKit adaptive stream and dynacast are enabled for viewers and browser broadcasters.
 - RTMP and WHIP ingress creation is supported for OBS and compatible encoders.
 - Browser and ingress publishers use distinct identities (browser-userId and ingress-userId); viewer identities are separate.
-- MySQL conditional updates reserve one broadcast source at a time. A short-lived lease protects startup, and the active source is retained until its matching participant/ingress ends.
+- PostgreSQL conditional updates reserve one broadcast source at a time. A short-lived lease protects startup, and the active source is retained until its matching participant/ingress ends.
 - Browser start invalidates any idle ingress configuration, preventing stale OBS keys from publishing into a browser-owned room.
 - Browser capture tracks are stopped on track-ended, disconnect, explicit stop, and component unmount.
 - Browser capture occurs before taking the source reservation, so declining camera/screen permissions does not invalidate an existing OBS configuration.
@@ -54,7 +54,7 @@ The current Prisma schema adds:
 - WatchSession for channel- and broadcast-specific viewer session history and accumulated watch time.
 - Stream.broadcastSource, broadcastSessionId, and broadcastLeaseExpiresAt for atomic source reservation.
 
-Apply and review these schema changes against the actual MySQL database before deploying. npx prisma db push is suitable for local development; production should use a reviewed, versioned migration and a database backup. This repository does not yet contain a generated production migration for these new fields/tables.
+Apply and review these schema changes against the actual PostgreSQL database before deploying. npx prisma db push is suitable for local development; production should use a reviewed, versioned migration and a database backup. This repository does not yet contain a generated production migration for these new fields/tables.
 
 ## Streaming integration audit matrix
 | Scenario | Code-level protection | Requires LiveKit/device test |
@@ -76,10 +76,10 @@ Apply and review these schema changes against the actual MySQL database before d
 ## Remaining checks requiring external services or real devices
 These cannot be marked complete by repository inspection or CI alone:
 - Full build and CI result for the exact latest commit.
-- Apply schema changes to a real MySQL database and test migrations/rollback.
+- Apply schema changes to a real PostgreSQL database and test migrations/rollback.
 - Clerk sign-in, sign-out, provisioning, deletion, and webhook delivery.
 - Guest cookie persistence, expiry, and guest-to-account transition.
-- MySQL concurrency tests for simultaneous chat messages and source reservations.
+- PostgreSQL concurrency tests for simultaneous chat messages and source reservations.
 - LiveKit Room Service sendData, participant removal, and token revocation compatibility with the configured project and installed SDK.
 - Real camera, microphone, screen-share video/audio, codec, and browser compatibility tests.
 - Browser/RTMP/WHIP handoff, duplicate-source races, reconnects, and webhook event ordering.

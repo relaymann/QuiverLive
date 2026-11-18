@@ -11,7 +11,9 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:generate-baseline": "bash scripts/generate-postgres-baseline.sh",
+    "db:migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@clerk/nextjs": "7.10.0",
