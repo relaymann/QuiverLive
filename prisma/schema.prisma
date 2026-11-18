@@ -128,3 +128,189 @@ model Block {
   @@index([blockerId])
   @@index([blockedId])
 }
+
+/// Metadata for VODs and clips; media bytes are stored by an external object-storage provider.
+model VideoAsset {
+  id String @id @default(uuid())
+  streamId String
+  ownerUserId String
+  kind String @db.VarChar(16)
+  title String @db.VarChar(120)
+  description String? @db.Text
+  storageKey String @db.Text
+  playbackUrl String? @db.Text
+  thumbnailUrl String? @db.Text
+  mimeType String? @db.VarChar(128)
+  sizeBytes BigInt?
+  durationSeconds Int?
+  visibility String @default("private") @db.VarChar(16)
+  processingState String @default("queued") @db.VarChar(20)
+  sourceStartedAt DateTime?
+  sourceEndedAt DateTime?
+  publishedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([ownerUserId, createdAt])
+  @@index([streamId, kind, createdAt])
+  @@index([processingState, createdAt])
+}
+
+model Clip {
+  id String @id @default(uuid())
+  videoAssetId String
+  streamId String
+  ownerUserId String
+  title String @db.VarChar(120)
+  startSeconds Int
+  endSeconds Int
+  status String @default("queued") @db.VarChar(20)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([videoAssetId, startSeconds])
+  @@index([streamId, createdAt])
+  @@index([ownerUserId, createdAt])
+}
+
+model ChannelPointBalance {
+  id String @id @default(uuid())
+  streamId String
+  userId String
+  balance BigInt @default(0)
+  updatedAt DateTime @updatedAt
+  @@unique([streamId, userId])
+  @@index([userId, updatedAt])
+}
+
+model ChannelPointTransaction {
+  id String @id @default(uuid())
+  streamId String
+  userId String
+  amount BigInt
+  reason String @db.VarChar(32)
+  referenceId String? @db.VarChar(191)
+  idempotencyKey String @db.VarChar(191)
+  metadata Json?
+  createdAt DateTime @default(now())
+  @@unique([streamId, idempotencyKey])
+  @@index([streamId, userId, createdAt])
+}
+
+model ChannelReward {
+  id String @id @default(uuid())
+  streamId String
+  title String @db.VarChar(80)
+  description String? @db.VarChar(500)
+  cost Int
+  isEnabled Boolean @default(true)
+  cooldownSeconds Int @default(0)
+  maxPerUser Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([streamId, isEnabled])
+}
+
+model ChannelRole {
+  id String @id @default(uuid())
+  streamId String
+  userId String
+  role String @db.VarChar(24)
+  grantedBy String
+  createdAt DateTime @default(now())
+  @@unique([streamId, userId, role])
+  @@index([streamId, role])
+}
+
+model ChatCommand {
+  id String @id @default(uuid())
+  streamId String
+  name String @db.VarChar(32)
+  response String @db.VarChar(500)
+  enabled Boolean @default(true)
+  cooldownSeconds Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([streamId, name])
+  @@index([streamId, enabled])
+}
+
+model ChannelEmote {
+  id String @id @default(uuid())
+  streamId String
+  name String @db.VarChar(32)
+  imageUrl String @db.Text
+  isEnabled Boolean @default(true)
+  createdAt DateTime @default(now())
+  @@unique([streamId, name])
+  @@index([streamId, isEnabled])
+}
+
+model Notification {
+  id String @id @default(uuid())
+  userId String
+  type String @db.VarChar(32)
+  title String @db.VarChar(120)
+  body String? @db.VarChar(500)
+  targetUrl String? @db.Text
+  actorId String?
+  dedupeKey String? @db.VarChar(191)
+  readAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId, readAt, createdAt])
+  @@unique([userId, dedupeKey])
+}
+
+model Raid {
+  id String @id @default(uuid())
+  sourceStreamId String
+  targetStreamId String
+  initiatedBy String
+  participantCount Int @default(0)
+  status String @default("pending") @db.VarChar(20)
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+  @@index([targetStreamId, createdAt])
+  @@index([sourceStreamId, createdAt])
+}
+
+model Subscription {
+  id String @id @default(uuid())
+  streamId String
+  subscriberUserId String
+  provider String @db.VarChar(24)
+  providerCustomerId String? @db.VarChar(191)
+  providerSubscriptionId String? @unique @db.VarChar(191)
+  status String @db.VarChar(24)
+  tier String @default("standard") @db.VarChar(32)
+  currentPeriodStart DateTime?
+  currentPeriodEnd DateTime?
+  cancelAtPeriodEnd Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([streamId, status, createdAt])
+  @@index([subscriberUserId, status])
+}
+
+model StreamAnalyticsDaily {
+  id String @id @default(uuid())
+  streamId String
+  day DateTime @db.Date
+  totalLiveSeconds BigInt @default(0)
+  uniqueViewers Int @default(0)
+  peakViewers Int @default(0)
+  totalViewerSeconds BigInt @default(0)
+  chatMessages Int @default(0)
+  follows Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([streamId, day])
+  @@index([streamId, day])
+}
+
+model RecentlyWatched {
+  id String @id @default(uuid())
+  userId String
+  streamId String
+  watchedAt DateTime @default(now())
+  @@unique([userId, streamId])
+  @@index([userId, watchedAt])
+}

@@ -85,3 +85,8 @@ CI cannot replace tests against real accounts, media services, devices, and netw
 - [ ] Confirm upstream starter licensing and distribution rights before public operation.
 
 Development work remains on development. master is not modified and no Vercel deployment is performed automatically.
+
+
+## Full product scope
+
+The complete creator, viewer, discovery, media, community, monetization, analytics, reliability, and accessibility scope is tracked in [docs/platform-scope.md](docs/platform-scope.md). New Prisma models are persistence foundations, not claims that provider-backed workflows or UI are already shipped. Production remains disabled until migrations, integrations, and release gates are verified.
