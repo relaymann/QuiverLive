@@ -39,7 +39,10 @@ Use two signed-in creator/viewer accounts, one guest browser session, one deskto
 - [ ] Verify blocks in either direction prevent chat and channel access.
 
 ## Watch time and followage commands
+- [ ] Join a channel while it is offline; confirm that offline room time is not counted.
+- [ ] Start the broadcast while viewers are already connected; confirm those viewers begin accumulating watch time.
 - [ ] Join a live channel, remain connected, and run `!watchtime`; confirm the active session is included.
+- [ ] Stop the broadcast while viewers remain connected; confirm watch time stops at broadcast end.
 - [ ] Leave and rejoin the same channel; confirm separate sessions accumulate without resetting the previous time.
 - [ ] Run `!watchtime` in a different channel; confirm watch time is channel-specific.
 - [ ] Test a guest viewer; confirm guest watch time is tracked for the signed guest identity.
@@ -47,6 +50,7 @@ Use two signed-in creator/viewer accounts, one guest browser session, one deskto
 - [ ] Run `!followage` for a non-follower and a guest; confirm the response says they are not following.
 - [ ] Verify broadcaster and viewer participant events are not counted as viewer watch sessions.
 - [ ] Verify duplicate webhook delivery does not double-count or reset an existing session.
+- [ ] Verify browser stop, RTMP/WHIP end, and broadcaster disconnect close all active viewer sessions.
 - [ ] Verify reconnects create a new session and a delayed leave event only closes the matching LiveKit participant SID.
 
 ## Reliability and performance
