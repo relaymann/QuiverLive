@@ -73,6 +73,44 @@ export async function POST(req: Request) {
           data: { isLive: false, broadcastSource: null, broadcastSessionId: null, broadcastLeaseExpiresAt: null },
         });
       }
+
+      // Viewer sessions are keyed by LiveKit participant SID, not identity, so
+      // reconnects create distinct sessions and delayed leave events cannot close
+      // a newer connection from the same account.
+      if (!source && !participantIdentity.startsWith(`host-`) && event.participant?.sid) {
+        const stream = await db.stream.findUnique({
+          where: { userId: roomName },
+          select: { id: true },
+        });
+        if (stream && event.event === "participant_joined") {
+          await db.watchSession.upsert({
+            where: {
+              streamId_participantSid: {
+                streamId: stream.id,
+                participantSid: event.participant.sid,
+              },
+            },
+            create: {
+              streamId: stream.id,
+              participantSid: event.participant.sid,
+              participantIdentity,
+              startedAt: new Date(),
+            },
+            update: {},
+          });
+        }
+
+        if (stream && event.event === "participant_left") {
+          await db.watchSession.updateMany({
+            where: {
+              streamId: stream.id,
+              participantSid: event.participant.sid,
+              endedAt: null,
+            },
+            data: { endedAt: new Date() },
+          });
+        }
+      }
     }
   } catch (error) {
     console.error("LiveKit webhook processing failed", { eventType: event.event, error });
