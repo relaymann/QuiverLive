@@ -101,13 +101,32 @@ export async function POST(req: Request) {
         }
 
         if (stream && event.event === "participant_left") {
+          const endedAt = new Date();
+          // Create a zero-length closed row if the leave webhook arrives before
+          // its matching join webhook. The later join upsert must not reopen it.
+          await db.watchSession.upsert({
+            where: {
+              streamId_participantSid: {
+                streamId: stream.id,
+                participantSid: event.participant.sid,
+              },
+            },
+            create: {
+              streamId: stream.id,
+              participantSid: event.participant.sid,
+              participantIdentity,
+              startedAt: endedAt,
+              endedAt,
+            },
+            update: {},
+          });
           await db.watchSession.updateMany({
             where: {
               streamId: stream.id,
               participantSid: event.participant.sid,
               endedAt: null,
             },
-            data: { endedAt: new Date() },
+            data: { endedAt },
           });
         }
       }
