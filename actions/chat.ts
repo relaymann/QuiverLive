@@ -1,10 +1,22 @@
 "use server";
 
 import { randomUUID } from "crypto";
+import { Prisma } from "@prisma/client";
 import { currentUser } from "@clerk/nextjs/server";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { db } from "@/lib/db";
 import { getGuestIdentity } from "@/lib/guest-session";
+
+const formatElapsed = (totalSeconds: number) => {
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const parts: string[] = [];
+  if (days) parts.push(`${days}d`);
+  if (hours) parts.push(`${hours}h`);
+  if (minutes || parts.length === 0) parts.push(`${minutes}m`);
+  return parts.join(" ");
+};
 
 export const sendChatMessage = async (hostIdentity: string, rawMessage: string) => {
   if (typeof rawMessage !== "string") throw new Error("Invalid chat message");
@@ -19,7 +31,7 @@ export const sendChatMessage = async (hostIdentity: string, rawMessage: string) 
 
   const host = await db.user.findUnique({
     where: { id: hostIdentity },
-    select: { id: true, stream: { select: { id: true, isChatEnabled: true, isChatDelayed: true, isChatFollowersOnly: true } } },
+    select: { id: true, username: true, stream: { select: { id: true, isChatEnabled: true, isChatDelayed: true, isChatFollowersOnly: true } } },
   });
   if (!host?.stream) throw new Error("This channel is unavailable");
   if (!host.stream.isChatEnabled) throw new Error("Chat is disabled");
@@ -91,8 +103,39 @@ export const sendChatMessage = async (hostIdentity: string, rawMessage: string) 
   const apiSecret = process.env.LIVEKIT_API_SECRET;
   if (!apiUrl || !apiKey || !apiSecret) throw new Error("Chat service is not configured");
 
+  let outgoingMessage = message;
+  let senderId = self.id;
+  let senderName = self.username;
+  const command = message.toLowerCase();
+
+  if (command === "!watchtime") {
+    const rows = await db.$queryRaw<Array<{ totalSeconds: bigint | number }>>(Prisma.sql`
+      SELECT COALESCE(
+        SUM(TIMESTAMPDIFF(SECOND, \`startedAt\`, COALESCE(\`endedAt\`, CURRENT_TIMESTAMP))),
+        0
+      ) AS totalSeconds
+      FROM \`WatchSession\`
+      WHERE \`streamId\` = ${host.stream.id}
+        AND \`participantIdentity\` = ${self.id}
+    `);
+    const totalSeconds = Math.max(0, Number(rows[0]?.totalSeconds ?? 0));
+    outgoingMessage = `@${self.username} has watched @${host.username}'s channel for ${formatElapsed(totalSeconds)}.`;
+    senderId = "system";
+    senderName = "QuiverLive";
+  } else if (command === "!followage") {
+    const follow = self.id.startsWith("guest-") ? null : await db.follow.findUnique({
+      where: { followerId_followingId: { followerId: self.id, followingId: host.id } },
+      select: { createdAt: true },
+    });
+    outgoingMessage = follow
+      ? `@${self.username} has been following @${host.username} for ${formatElapsed(Math.max(0, Math.floor((Date.now() - follow.createdAt.getTime()) / 1000)))}.`
+      : `@${self.username} isn't following @${host.username} yet.`;
+    senderId = "system";
+    senderName = "QuiverLive";
+  }
+
   const payload = new TextEncoder().encode(JSON.stringify({
-    id: randomUUID(), message, timestamp: now.getTime(), senderId: self.id, senderName: self.username,
+    id: randomUUID(), message: outgoingMessage, timestamp: Date.now(), senderId, senderName,
   }));
   const roomService = new RoomServiceClient(apiUrl, apiKey, apiSecret);
   await roomService.sendData(host.id, payload, 0);
