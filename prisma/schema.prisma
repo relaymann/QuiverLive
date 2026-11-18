@@ -94,12 +94,13 @@ model ChatModeration {
 model WatchSession {
   id                  String   @id @default(uuid())
   streamId            String
+  broadcastSessionId  String   @db.VarChar(64)
   participantSid      String   @db.VarChar(128)
   participantIdentity String   @db.VarChar(128)
   startedAt           DateTime @default(now())
   endedAt             DateTime?
   stream Stream @relation(fields: [streamId], references: [id], onDelete: Cascade)
-  @@unique([streamId, participantSid])
+  @@unique([streamId, broadcastSessionId, participantSid])
   @@index([streamId, participantIdentity, endedAt])
   @@index([startedAt])
 }
