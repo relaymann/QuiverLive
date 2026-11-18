@@ -45,6 +45,7 @@ model Stream {
   chatRateLimits ChatRateLimit[]
   guestChatRateLimits GuestChatRateLimit[]
   chatModerations ChatModeration[]
+  watchSessions WatchSession[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@index([userId])
@@ -88,6 +89,19 @@ model ChatModeration {
   @@unique([streamId, participantIdentity])
   @@index([streamId, isBanned])
   @@index([timedOutUntil])
+}
+
+model WatchSession {
+  id                  String   @id @default(uuid())
+  streamId            String
+  participantSid      String   @db.VarChar(128)
+  participantIdentity String   @db.VarChar(128)
+  startedAt           DateTime @default(now())
+  endedAt             DateTime?
+  stream Stream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  @@unique([streamId, participantSid])
+  @@index([streamId, participantIdentity, endedAt])
+  @@index([startedAt])
 }
 
 model Follow {
