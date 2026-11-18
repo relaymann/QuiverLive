@@ -38,6 +38,17 @@ Use two signed-in creator/viewer accounts, one guest browser session, one deskto
 - [ ] Verify guest ban controls are disabled and server rejects attempts to persistently ban guests.
 - [ ] Verify blocks in either direction prevent chat and channel access.
 
+## Watch time and followage commands
+- [ ] Join a live channel, remain connected, and run `!watchtime`; confirm the active session is included.
+- [ ] Leave and rejoin the same channel; confirm separate sessions accumulate without resetting the previous time.
+- [ ] Run `!watchtime` in a different channel; confirm watch time is channel-specific.
+- [ ] Test a guest viewer; confirm guest watch time is tracked for the signed guest identity.
+- [ ] Run `!followage` for a follower; confirm the result is based on the follow's original creation time.
+- [ ] Run `!followage` for a non-follower and a guest; confirm the response says they are not following.
+- [ ] Verify broadcaster and viewer participant events are not counted as viewer watch sessions.
+- [ ] Verify duplicate webhook delivery does not double-count or reset an existing session.
+- [ ] Verify reconnects create a new session and a delayed leave event only closes the matching LiveKit participant SID.
+
 ## Reliability and performance
 - [ ] Confirm webhook retries are idempotent and stale source events do not switch the active source offline.
 - [ ] Check stream state after browser/encoder crashes and after creator navigation.
