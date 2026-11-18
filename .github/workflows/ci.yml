@@ -29,8 +29,21 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Validate Prisma schema
         run: npx prisma validate
-      - name: Verify PostgreSQL baseline generation
-        run: npm run db:generate-baseline
+      - name: Verify PostgreSQL baseline migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline="prisma/migrations/20261118000000_init_postgresql/migration.sql"
+
+          if [[ -s "$baseline" ]]; then
+            npx prisma migrate diff \
+              --from-empty \
+              --to-schema-datamodel prisma/schema.prisma \
+              --script > /tmp/schoolstream-baseline.sql
+            diff -u "$baseline" /tmp/schoolstream-baseline.sql
+          else
+            npm run db:generate-baseline
+          fi
       - name: Run ESLint
         run: npm run lint
       - name: Run TypeScript checks
