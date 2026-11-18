@@ -51,7 +51,7 @@ QuiverLive is a general-purpose livestreaming platform for creators and communit
 The current Prisma schema adds:
 - GuestChatRateLimit for signed guest chat throttling.
 - ChatModeration for channel bans and timeouts.
-- WatchSession for channel-specific viewer session history and accumulated watch time.
+- WatchSession for channel- and broadcast-specific viewer session history and accumulated watch time.
 - Stream.broadcastSource, broadcastSessionId, and broadcastLeaseExpiresAt for atomic source reservation.
 
 Apply and review these schema changes against the actual MySQL database before deploying. npx prisma db push is suitable for local development; production should use a reviewed, versioned migration and a database backup. This repository does not yet contain a generated production migration for these new fields/tables.
@@ -70,7 +70,7 @@ Apply and review these schema changes against the actual MySQL database before d
 | Banned viewer reconnect | Ban checked before viewer token issuance | Yes |
 | Timeout | Current participant removed; chat denied until expiry; viewing remains allowed | Yes |
 | Guest chat | Signed HTTP-only guest identity and separate DB rate limit | Yes |
-| Watch time | Participant-SID keyed viewer sessions from LiveKit join/leave webhooks | Yes |
+| Watch time | Broadcast- and participant-SID keyed sessions; LiveKit join/leave events and Room Service sync for viewers already connected at broadcast start | Yes |
 | Followage | Existing Follow.createdAt timestamp queried per channel | Yes |
 
 ## Remaining checks requiring external services or real devices
@@ -84,7 +84,7 @@ These cannot be marked complete by repository inspection or CI alone:
 - Real camera, microphone, screen-share video/audio, codec, and browser compatibility tests.
 - Browser/RTMP/WHIP handoff, duplicate-source races, reconnects, and webhook event ordering.
 - Timeout, ban, unban, blocked-user, and rejoin behavior across multiple accounts.
-- Watch-time webhook delivery, duplicate/reordered events, reconnect accounting, guest tracking, and followage results.
+- Watch-time webhook delivery, duplicate/reordered events, reconnect accounting, guest tracking, live/offline transitions, and followage results.
 - Viewer playback and audio/fullscreen controls on current desktop and mobile browsers.
 - TURN/TLS connectivity on restrictive networks.
 - CPU, memory, bandwidth, startup time, and playback measurements on lower-powered devices.
@@ -92,7 +92,7 @@ These cannot be marked complete by repository inspection or CI alone:
 
 ## Known product limitations
 - Chat history is not persisted.
-- Watch time begins accumulating when the LiveKit participant-joined webhook is processed; delayed/missed webhook delivery can affect totals and must be validated against the configured LiveKit project.
+- Watch time accumulates only during an active broadcast. LiveKit webhook delivery and Room Service participant synchronization determine session boundaries; delayed/missed webhook delivery or failed participant synchronization can affect totals and must be validated against the configured LiveKit project.
 - Moderator roles beyond the channel owner are not implemented.
 - Timeouts are currently fixed at five minutes.
 - Guests can be timed out but cannot receive persistent bans.
