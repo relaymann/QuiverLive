@@ -7,6 +7,9 @@ import { db } from "@/lib/db";
 import { getSelf } from "@/lib/auth-service";
 
 export const updateStream = async (values: Partial<Stream>) => {
+  if (!values || typeof values !== "object" || Array.isArray(values)) {
+    throw new Error("Invalid stream settings");
+  }
   const self = await getSelf();
   const selfStream = await db.stream.findUnique({
     where: { userId: self.id },
@@ -26,6 +29,7 @@ export const updateStream = async (values: Partial<Stream>) => {
   } = {};
 
   if (values.name !== undefined) {
+    if (typeof values.name !== "string") throw new Error("Invalid stream name");
     const name = values.name.trim();
     if (!name || name.length > 100) {
       throw new Error("Stream name must be between 1 and 100 characters");
@@ -35,6 +39,7 @@ export const updateStream = async (values: Partial<Stream>) => {
 
   if (values.thumbnailUrl !== undefined) {
     if (values.thumbnailUrl !== null) {
+      if (typeof values.thumbnailUrl !== "string") throw new Error("Invalid thumbnail URL");
       let thumbnailUrl: URL;
       try {
         thumbnailUrl = new URL(values.thumbnailUrl);

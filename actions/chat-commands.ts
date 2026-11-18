@@ -23,10 +23,11 @@ export const createChatCommand = async (input: {
   response: string;
   cooldownSeconds: number;
 }) => {
-  const { self, stream } = await getOwnedStream();
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid command");
   if (typeof input.name !== "string" || typeof input.response !== "string") {
     throw new Error("Invalid command");
   }
+  const { self, stream } = await getOwnedStream();
   const name = normalizeName(input.name);
   const response = input.response.trim();
   const cooldownSeconds = Number(input.cooldownSeconds);

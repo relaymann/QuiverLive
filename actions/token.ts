@@ -9,6 +9,12 @@ import { extendBroadcastReservation, releaseBroadcastReservation, reserveBroadca
 import { resetIngresses } from "@/lib/livekit-admin";
 
 export const createViewerToken = async (hostIdentity: string) => {
+  if (typeof hostIdentity !== "string" || !hostIdentity || hostIdentity.length > 64) {
+    throw new Error("Invalid channel");
+  }
+  const apiKey = process.env.LIVEKIT_API_KEY;
+  const apiSecret = process.env.LIVEKIT_API_SECRET;
+  if (!apiKey || !apiSecret) throw new Error("LiveKit server credentials are not configured");
   const clerkUser = await currentUser();
   const self = clerkUser
     ? await db.user.findUnique({ where: { externalUserId: clerkUser.id }, select: { id: true, username: true } })
@@ -41,7 +47,7 @@ export const createViewerToken = async (hostIdentity: string) => {
     }
   }
 
-  const token = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
+  const token = new AccessToken(apiKey, apiSecret, {
     identity: self.id === host.id ? "host-" + self.id : self.id,
     name: self.username,
   });
@@ -81,6 +87,13 @@ export const reserveBrowserBroadcast = async (hostIdentity: string) => {
 };
 
 export const createBroadcasterToken = async (hostIdentity: string, sessionId: string) => {
+  if (typeof hostIdentity !== "string" || !hostIdentity || hostIdentity.length > 64 ||
+    typeof sessionId !== "string" || !/^[0-9a-f-]{36}$/i.test(sessionId)) {
+    throw new Error("Invalid broadcast session");
+  }
+  const apiKey = process.env.LIVEKIT_API_KEY;
+  const apiSecret = process.env.LIVEKIT_API_SECRET;
+  if (!apiKey || !apiSecret) throw new Error("LiveKit server credentials are not configured");
   const clerk = await currentUser();
   const self = clerk
     ? await db.user.findUnique({ where: { externalUserId: clerk.id }, select: { id: true, username: true } })
@@ -88,7 +101,7 @@ export const createBroadcasterToken = async (hostIdentity: string, sessionId: st
   if (!self || self.id !== hostIdentity) throw new Error("Only the channel owner can start a browser broadcast");
 
   await extendBroadcastReservation(self.id, sessionId);
-  const token = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
+  const token = new AccessToken(apiKey, apiSecret, {
     identity: `browser-${self.id}-${sessionId}`,
     name: self.username,
     ttl: 300,
@@ -98,6 +111,10 @@ export const createBroadcasterToken = async (hostIdentity: string, sessionId: st
 };
 
 export const releaseBrowserBroadcast = async (hostIdentity: string, sessionId: string) => {
+  if (typeof hostIdentity !== "string" || !hostIdentity || hostIdentity.length > 64 ||
+    typeof sessionId !== "string" || !/^[0-9a-f-]{36}$/i.test(sessionId)) {
+    return { released: false };
+  }
   const clerk = await currentUser();
   const self = clerk
     ? await db.user.findUnique({ where: { externalUserId: clerk.id }, select: { id: true } })

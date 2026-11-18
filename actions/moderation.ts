@@ -26,6 +26,7 @@ export const moderateChatParticipant = async (
   participantIdentity: string,
   action: "timeout" | "ban",
 ) => {
+  if (action !== "timeout" && action !== "ban") throw new Error("Invalid moderation action");
   const { self, stream } = await getOwnedStream(hostIdentity);
   if (typeof participantIdentity !== "string" || !participantIdentity || participantIdentity.length > 128) {
     throw new Error("Invalid participant");

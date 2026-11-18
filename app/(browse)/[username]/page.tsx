@@ -16,10 +16,8 @@ export default async function UserPage({ params }: UserPageProps) {
   const { username } = await params;
   const user = await getUserByUsername(username);
   if (!user || !user.stream) notFound();
-  const [isFollowing, isBlocked] = await Promise.all([
-    isFollowingUser(user.id),
-    isBlockedByUser(user.id),
-  ]);
+  const isFollowing = await isFollowingUser(user.id);
+  const isBlocked = await isBlockedByUser(user.id);
   if (isBlocked) notFound();
   return <StreamPlayer user={user} isFollowing={isFollowing} stream={user.stream} />;
 }
