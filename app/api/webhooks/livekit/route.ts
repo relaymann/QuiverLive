@@ -28,6 +28,17 @@ const startViewerSessions = async (
       })),
       skipDuplicates: true,
     });
+    // Close any rows created concurrently with a broadcast stop or source swap.
+    const currentStream = await db.stream.findUnique({
+      where: { id: streamId },
+      select: { isLive: true, broadcastSessionId: true },
+    });
+    if (!currentStream?.isLive || currentStream.broadcastSessionId !== broadcastSessionId) {
+      await db.watchSession.updateMany({
+        where: { streamId, broadcastSessionId, endedAt: null },
+        data: { endedAt: new Date() },
+      });
+    }
   }
 };
 
@@ -169,6 +180,22 @@ export async function POST(req: Request) {
             },
             update: {},
           });
+          // A broadcast may have stopped between the stream lookup and insert.
+          const currentStream = await db.stream.findUnique({
+            where: { id: stream.id },
+            select: { isLive: true, broadcastSessionId: true },
+          });
+          if (!currentStream?.isLive || currentStream.broadcastSessionId !== stream.broadcastSessionId) {
+            await db.watchSession.updateMany({
+              where: {
+                streamId: stream.id,
+                broadcastSessionId: stream.broadcastSessionId,
+                participantSid,
+                endedAt: null,
+              },
+              data: { endedAt: new Date() },
+            });
+          }
         }
 
         if (stream && event.event === "participant_left") {
