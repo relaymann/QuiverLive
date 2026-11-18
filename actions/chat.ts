@@ -25,7 +25,9 @@ export const sendChatMessage = async (hostIdentity: string, rawMessage: string) 
   });
   if (blocked) throw new Error("You cannot chat in this channel");
 
-  if (host.stream.isChatFollowersOnly) {
+  // Channel owners must still be able to participate in their own
+  // followers-only chat without following themselves.
+  if (host.stream.isChatFollowersOnly && self.id !== host.id) {
     const follow = await db.follow.findUnique({
       where: { followerId_followingId: { followerId: self.id, followingId: host.id } },
       select: { id: true },

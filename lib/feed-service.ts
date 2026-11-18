@@ -15,11 +15,10 @@ export const getStreams = async () => {
     where: userId
       ? {
           user: {
-            NOT: {
-              blocking: {
-                some: { blockedId: userId },
-              },
-            },
+            AND: [
+              { blocking: { none: { blockedId: userId } } },
+              { blockedBy: { none: { blockerId: userId } } },
+            ],
           },
         }
       : undefined,
