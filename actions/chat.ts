@@ -132,6 +132,34 @@ export const sendChatMessage = async (hostIdentity: string, rawMessage: string) 
       : `@${self.username} isn't following @${host.username} yet.`;
     senderId = "system";
     senderName = "QuiverLive";
+  } else {
+    const match = /^!([a-z0-9_]{1,32})(?:\s|$)/i.exec(message);
+    if (match) {
+      const customCommand = await db.chatCommand.findUnique({
+        where: { streamId_name: { streamId: host.stream.id, name: match[1].toLowerCase() } },
+        select: { id: true, response: true, enabled: true, cooldownSeconds: true },
+      });
+      if (customCommand?.enabled) {
+        let canRun = true;
+        if (customCommand.cooldownSeconds > 0) {
+          const claimed = await db.chatCommand.updateMany({
+            where: {
+              id: customCommand.id,
+              enabled: true,
+              OR: [
+                { lastUsedAt: null },
+                { lastUsedAt: { lte: new Date(Date.now() - customCommand.cooldownSeconds * 1000) } },
+              ],
+            },
+            data: { lastUsedAt: new Date() },
+          });
+          canRun = claimed.count === 1;
+        }
+        outgoingMessage = canRun ? customCommand.response : "That command is on cooldown.";
+        senderId = "system";
+        senderName = "QuiverLive";
+      }
+    }
   }
 
   const payload = new TextEncoder().encode(JSON.stringify({

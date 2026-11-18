@@ -43,6 +43,11 @@ The Prisma schema now includes models for video assets, clips, channel point bal
 
 These are schema foundations only. UI, server workflows, authorization, media storage and transcoding, payment processing, notification delivery, queue workers, and provider integrations remain separate implementation work. Do not enable or advertise these features as operational until those pieces and their tests are complete.
 
+
+
+### Current incremental schema change
+The custom-command cooldown requires the nullable `ChatCommand.lastUsedAt` column. This repository does not yet have a versioned Prisma migration baseline, so this change is not represented as a standalone production migration. Apply and verify the schema with `npx prisma db push` only in a development database. Before production, establish a reviewed baseline and migration plan, then add the nullable `lastUsedAt` column to the existing `ChatCommand` table. Do not deploy this feature against a database that has not received the schema update.
+
 ## Release gates
 1. Review and apply a versioned migration against disposable MySQL; verify backup and restore.
 2. Pass authorization matrix, abuse, and rate-limit tests.

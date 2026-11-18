@@ -227,6 +227,7 @@ model ChatCommand {
   response String @db.VarChar(500)
   enabled Boolean @default(true)
   cooldownSeconds Int @default(0)
+  lastUsedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@unique([streamId, name])
