@@ -47,7 +47,7 @@ Channel owners can timeout a connected viewer for five minutes or ban a register
 ## Local development
 1. Install Node.js 22 LTS and npm.
 2. Run npm ci.
-3. Copy .env.example to .env.local and configure credentials privately.
+3. Copy .env.example to .env and configure credentials privately. Prisma CLI reads .env automatically; Next.js also reads it.
 4. Run npx prisma generate.
 5. Generate the PostgreSQL baseline with npm run db:generate-baseline, review and commit the generated migration, then apply it to Supabase with npm run db:migrate:deploy. Do not apply the baseline to a populated database or use it as a substitute for importing existing records.
 6. Run npm run typecheck, npm run lint, and npm run build.

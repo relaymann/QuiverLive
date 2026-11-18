@@ -9,7 +9,7 @@ Copy connection strings from the Supabase project dashboard rather than construc
 - `DATABASE_URL`: Supabase **Transaction Pooler** connection string (port 6543), for application traffic on Vercel. Append `?pgbouncer=true` (or use `&pgbouncer=true` if the URL already has query parameters). With Prisma 5 and serverless functions, start with `connection_limit=1` unless load testing demonstrates that a larger per-instance pool is appropriate.
 - `DIRECT_URL`: Supabase direct connection string (port 5432), or the **Session Pooler** connection string (port 5432) when the deployment environment cannot reach the direct IPv6 endpoint. Prisma Migrate uses this URL and must not use the transaction pooler.
 
-Keep both values private. URL-encode special characters in the database password. Configure both variables in local `.env.local` and in Vercel. Do not prefix either variable with `NEXT_PUBLIC_`.
+Keep both values private. URL-encode special characters in the database password. Configure both variables in local `.env` and in Vercel. Prisma CLI loads `.env` automatically. Do not prefix either variable with `NEXT_PUBLIC_`.
 
 The Prisma datasource uses `DATABASE_URL` at runtime and `DIRECT_URL` for CLI migration operations.
 
