@@ -29,6 +29,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Validate Prisma schema
         run: npx prisma validate
+      - name: Verify PostgreSQL baseline generation
+        run: npm run db:generate-baseline
       - name: Run ESLint
         run: npm run lint
       - name: Run TypeScript checks

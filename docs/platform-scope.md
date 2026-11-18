@@ -46,7 +46,7 @@ These are schema foundations only. UI, server workflows, authorization, media st
 
 
 ### Current incremental schema change
-The custom-command cooldown requires the nullable `ChatCommand.lastUsedAt` column. This repository does not yet have a versioned Prisma migration baseline, so this change is not represented as a standalone production migration. Apply and verify the schema with `npx prisma db push` only in a development database. Before production, establish a reviewed baseline and migration plan, then add the nullable `lastUsedAt` column to the existing `ChatCommand` table. Do not deploy this feature against a database that has not received the schema update.
+The nullable `ChatCommand.lastUsedAt` field is included in the Supabase PostgreSQL schema. The initial PostgreSQL migration baseline must include this field. Generate and review that baseline with `npm run db:generate-baseline`; do not use `prisma db push` as a production migration strategy.
 
 ## Release gates
 1. Review and apply a versioned migration against disposable PostgreSQL; verify backup and restore.
