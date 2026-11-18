@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { stringToColor } from "@/lib/utils";
 import { QuiverLiveChatMessage } from "./chat-list";
 
-export function ChatMessage({ data }: { data: QuiverLiveChatMessage }) {
+function ChatMessageComponent({ data }: { data: QuiverLiveChatMessage }) {
   const color = stringToColor(data.from?.name || "");
   return <div className="flex gap-2 rounded-md p-2 hover:bg-white/5">
     <p className="shrink-0 text-sm text-white/40">{format(data.timestamp, "HH:mm")}</p>
@@ -15,3 +15,5 @@ export function ChatMessage({ data }: { data: QuiverLiveChatMessage }) {
     </div>
   </div>;
 }
+
+export const ChatMessage = React.memo(ChatMessageComponent);

@@ -51,6 +51,7 @@ model Stream {
   @@index([userId])
   @@index([ingressId])
   @@index([broadcastSessionId])
+  @@index([isLive, updatedAt])
   @@fulltext([name])
 }
 
@@ -102,6 +103,8 @@ model WatchSession {
   stream Stream @relation(fields: [streamId], references: [id], onDelete: Cascade)
   @@unique([streamId, broadcastSessionId, participantSid])
   @@index([streamId, participantIdentity, endedAt])
+  @@index([streamId, broadcastSessionId, endedAt])
+  @@index([streamId, participantSid, endedAt])
   @@index([startedAt])
 }
 

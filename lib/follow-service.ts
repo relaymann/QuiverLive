@@ -4,17 +4,13 @@ import { getSelf } from "@/lib/auth-service";
 export const getFollwedUser = async () => {
   try {
     const self = await getSelf();
-    const blocks = await db.block.findMany({
-      where: { blockerId: self.id },
-      select: { blockedId: true },
-    });
-    const blockedIds = blocks.map((block) => block.blockedId);
-
     return await db.follow.findMany({
       where: {
         followerId: self.id,
-        followingId: { notIn: blockedIds },
-        following: { blocking: { none: { blockedId: self.id } } },
+        following: {
+          blocking: { none: { blockedId: self.id } },
+          blockedBy: { none: { blockerId: self.id } },
+        },
       },
       select: {
         id: true,
@@ -36,18 +32,15 @@ export const getFollwedUser = async () => {
 export const isFollowingUser = async (id: string) => {
   try {
     const self = await getSelf();
-    const otherUser = await db.user.findUnique({ where: { id }, select: { id: true } });
-    if (!otherUser) return false;
-    if (otherUser.id === self.id) return true;
+    if (id === self.id) return true;
 
-    const blocked = await db.block.findFirst({
-      where: { OR: [{ blockerId: self.id, blockedId: otherUser.id }, { blockerId: otherUser.id, blockedId: self.id }] },
-      select: { id: true },
-    });
-    if (blocked) return false;
-
-    const existingFollow = await db.follow.findUnique({
-      where: { followerId_followingId: { followerId: self.id, followingId: otherUser.id } },
+    const existingFollow = await db.follow.findFirst({
+      where: {
+        followerId: self.id,
+        followingId: id,
+        follower: { blocking: { none: { blockedId: id } } },
+        following: { blocking: { none: { blockedId: self.id } } },
+      },
       select: { id: true },
     });
     return !!existingFollow;

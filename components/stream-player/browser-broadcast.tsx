@@ -46,11 +46,11 @@ export function BrowserBroadcast({ hostIdentity }: { hostIdentity: string }) {
     roomRef.current = null;
     tracksRef.current = [];
     sessionIdRef.current = null;
-    tracks.forEach((track) => {
-      if (room) void room.localParticipant.unpublishTrack(track);
-      track.stop();
-    });
-    if (room) await room.disconnect();
+    if (room) {
+      try { await room.disconnect(); }
+      catch (error) { console.error("Unable to disconnect browser broadcast room cleanly", error); }
+    }
+    tracks.forEach((track) => track.stop());
     setPreviewTrack(null);
     setStatus("idle");
     await releaseSession(sessionId);
@@ -61,11 +61,8 @@ export function BrowserBroadcast({ hostIdentity }: { hostIdentity: string }) {
     roomRef.current = null;
     const tracks = tracksRef.current;
     tracksRef.current = [];
-    tracks.forEach((track) => {
-      if (room) void room.localParticipant.unpublishTrack(track);
-      track.stop();
-    });
     if (room) void room.disconnect();
+    tracks.forEach((track) => track.stop());
     const sessionId = sessionIdRef.current;
     sessionIdRef.current = null;
     if (sessionId) void releaseBrowserBroadcast(hostIdentity, sessionId);
@@ -140,10 +137,13 @@ export function BrowserBroadcast({ hostIdentity }: { hostIdentity: string }) {
       setStatus("live");
       toast.success(mode === "camera" ? "Camera broadcast is live" : "Screen broadcast is live");
     } catch (error) {
-      tracks.forEach((track) => track.stop());
       if (roomRef.current === room) roomRef.current = null;
       if (tracksRef.current === tracks) tracksRef.current = [];
-      if (room) await room.disconnect();
+      if (room) {
+        try { await room.disconnect(); }
+        catch (disconnectError) { console.error("Unable to disconnect failed browser broadcast room", disconnectError); }
+      }
+      tracks.forEach((track) => track.stop());
       setPreviewTrack(null);
       setStatus("idle");
       await releaseSession(sessionId);
