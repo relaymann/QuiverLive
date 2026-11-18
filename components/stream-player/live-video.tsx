@@ -1,49 +1,68 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Participant, Track } from "livekit-client";
-import { useTracks } from "@livekit/components-react";
+"use client";
+
+import React, { useEffect, useRef, useState } from "react";
+import { Track } from "livekit-client";
 import { useEventListener } from "usehooks-ts";
 import { FullscreenControl } from "./fullscreen-control";
 import { VolumeControl } from "./volume-control";
 
-export function LiveVideo({ participant }: { participant: Participant }) {
+function RemoteAudioTrack({ track, volume }: { track: Track; volume: number }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const element = audioRef.current;
+    if (!element) return;
+    track.attach(element);
+    return () => { track.detach(element); };
+  }, [track]);
+
+  useEffect(() => {
+    const element = audioRef.current;
+    if (!element) return;
+    element.volume = volume / 100;
+    element.muted = volume === 0;
+  }, [volume]);
+
+  return <audio ref={audioRef} autoPlay muted className="hidden" />;
+}
+
+export function LiveVideo({ videoTrack, audioTracks }: { videoTrack: Track; audioTracks: Track[] }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [volume, setVolume] = useState(0);
+
   const onVolumeChange = (value: number) => {
-    setVolume(+value);
-    if (videoRef.current) { videoRef.current.muted = value === 0; videoRef.current.volume = +value * 0.01; }
+    setVolume(Math.max(0, Math.min(100, value)));
   };
-  const toggleMute = () => {
-    const isMuted = volume === 0;
-    setVolume(isMuted ? 50 : 0);
-    if (videoRef.current) { videoRef.current.muted = !isMuted; videoRef.current.volume = isMuted ? 0.5 : 0; }
-  };
-  useEffect(() => { onVolumeChange(0); }, []);
+
+  const toggleMute = () => setVolume((current) => current === 0 ? 50 : 0);
+
+  useEffect(() => {
+    const element = videoRef.current;
+    if (!element) return;
+    videoTrack.attach(element);
+    return () => { videoTrack.detach(element); };
+  }, [videoTrack]);
+
   const toggleFullscreen = () => {
     if (isFullscreen) void document.exitFullscreen();
     else if (wrapperRef.current) void wrapperRef.current.requestFullscreen();
   };
+
   const handleFullscreenChange = () => setIsFullscreen(document.fullscreenElement !== null);
   useEventListener("fullscreenchange", handleFullscreenChange, wrapperRef);
-  const trackReferences = useTracks([Track.Source.Camera, Track.Source.Microphone, Track.Source.ScreenShare]);
-  const tracks = useMemo(() => trackReferences
-    .filter((reference) => reference.participant.identity === participant.identity)
-    .map((reference) => reference.publication.track)
-    .filter((track): track is Track => !!track), [trackReferences, participant.identity]);
-  useEffect(() => {
-    const element = videoRef.current;
-    if (!element) return;
-    tracks.forEach((track) => track.attach(element));
-    return () => tracks.forEach((track) => track.detach(element));
-  }, [tracks]);
-  return <div ref={wrapperRef} className="relative h-full flex">
-    <video ref={videoRef} width="100%" playsInline />
-    <div className="absolute top-0 h-full w-full opacity-0 hover:opacity-100 hover:transition-all">
-      <div className="absolute bottom-0 flex h-14 w-full items-center justify-between bg-gradient-to-r from-neutral-900 px-4">
+
+  return (
+    <div ref={wrapperRef} className="group relative flex h-full w-full items-center justify-center bg-black">
+      <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-contain" />
+      {audioTracks.map((track) => (
+        <RemoteAudioTrack key={track.sid ?? track.mediaStreamTrack.id} track={track} volume={volume} />
+      ))}
+      <div className="absolute inset-x-0 bottom-0 flex h-14 items-center justify-between bg-gradient-to-t from-black/80 to-transparent px-4 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
         <VolumeControl onChange={onVolumeChange} value={volume} onToggle={toggleMute} />
         <FullscreenControl isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
       </div>
     </div>
-  </div>;
+  );
 }
