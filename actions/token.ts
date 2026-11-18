@@ -116,6 +116,13 @@ export const releaseBrowserBroadcast = async (hostIdentity: string, sessionId: s
     where: { userId: self.id, broadcastSource: "browser", broadcastSessionId: sessionId },
     data: { isLive: false, broadcastSource: null, broadcastSessionId: null, broadcastLeaseExpiresAt: null },
   });
+  const stream = await db.stream.findUnique({ where: { userId: self.id }, select: { id: true } });
+  if (stream) {
+    await db.watchSession.updateMany({
+      where: { streamId: stream.id, broadcastSessionId: sessionId, endedAt: null },
+      data: { endedAt: new Date() },
+    });
+  }
   await releaseBroadcastReservation(self.id, sessionId, "browser");
   return { released: true };
 };
