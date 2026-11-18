@@ -33,6 +33,7 @@ export const createViewerToken = async (hostIdentity: string) => {
   return token.toJwt();
 };
 
+/** Mint a short-lived publishing token only when the owner actually starts broadcasting. */
 export const createBroadcasterToken = async (hostIdentity: string) => {
   const clerk = await currentUser();
   const self = clerk
@@ -40,12 +41,17 @@ export const createBroadcasterToken = async (hostIdentity: string) => {
     : null;
   if (!self || self.id !== hostIdentity) throw new Error("Only the channel owner can start a browser broadcast");
 
-  const stream = await db.stream.findUnique({ where: { userId: self.id }, select: { id: true } });
+  const stream = await db.stream.findUnique({
+    where: { userId: self.id },
+    select: { id: true, isLive: true },
+  });
   if (!stream) throw new Error("No stream is configured for this account");
+  if (stream.isLive) throw new Error("Your channel is already live. Stop the other stream source first.");
 
   const token = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
     identity: self.id,
     name: self.username,
+    ttl: 300,
   });
   token.addGrant({ room: self.id, roomJoin: true, canPublish: true, canPublishData: false });
   return token.toJwt();

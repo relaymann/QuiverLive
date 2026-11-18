@@ -5,7 +5,7 @@ import { createLocalScreenTracks, createLocalTracks, LocalTrack, LocalVideoTrack
 import { Camera, MonitorUp, Square } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { assertCanStartBrowserBroadcast } from "@/actions/token";
+import { assertCanStartBrowserBroadcast, createBroadcasterToken } from "@/actions/token";
 
 type BroadcastStatus = "idle" | "starting" | "live" | "reconnecting";
 type Quality = "360p" | "540p" | "720p";
@@ -15,7 +15,7 @@ const DIMENSIONS: Record<Quality, { width: number; height: number }> = {
   "720p": { width: 1280, height: 720 },
 };
 
-export function BrowserBroadcast({ token, hostIdentity }: { token: string; hostIdentity: string }) {
+export function BrowserBroadcast({ hostIdentity }: { hostIdentity: string }) {
   const roomRef = useRef<Room | null>(null);
   const tracksRef = useRef<LocalTrack[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -64,8 +64,10 @@ export function BrowserBroadcast({ token, hostIdentity }: { token: string; hostI
     let tracks: LocalTrack[] = [];
 
     try {
-      // Check channel ownership and source state before asking the browser for
-      // camera/screen permissions, then recheck immediately before connecting.
+      const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_WS_URL;
+      if (!serverUrl) throw new Error("LiveKit is not configured for browser broadcasting");
+
+      // Check availability before prompting for camera/screen permissions.
       await assertCanStartBrowserBroadcast(hostIdentity);
 
       const resolution = {
@@ -83,8 +85,8 @@ export function BrowserBroadcast({ token, hostIdentity }: { token: string; hostI
       room = new Room({ adaptiveStream: true, dynacast: true });
       roomRef.current = room;
 
-      // Listen as soon as capture tracks exist so a source ending during
-      // connection or publication cannot leave a half-live broadcast behind.
+      // Listen immediately so a capture source ending during token creation,
+      // connection, or publication cannot leave a half-live session behind.
       tracks.forEach((track) => {
         track.mediaStreamTrack.addEventListener("ended", () => {
           if (roomRef.current === room) void stopBroadcast();
@@ -107,10 +109,11 @@ export function BrowserBroadcast({ token, hostIdentity }: { token: string; hostI
         toast.error("Your broadcast connection was lost. Start again when your connection is stable.");
       });
 
-      await assertCanStartBrowserBroadcast(hostIdentity);
-      const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_WS_URL;
-      if (!serverUrl) throw new Error("LiveKit is not configured for browser broadcasting");
-      await room.connect(serverUrl, token);
+      // Recheck server state and mint a fresh five-minute token at start time;
+      // the page never ships a long-lived publishing token to the browser.
+      const broadcasterToken = await createBroadcasterToken(hostIdentity);
+      if (roomRef.current !== room) return;
+      await room.connect(serverUrl, broadcasterToken);
       if (roomRef.current !== room) return;
 
       for (const track of tracks) {
