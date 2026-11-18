@@ -33,7 +33,7 @@ Chat messages are relayed by the server. Viewer tokens do not grant client data 
 
 The server checks chat-enabled status, follower-only access, bidirectional blocks, channel bans, timeout expiry, message length, and per-channel rate limits. Slow mode enforces three seconds between messages; a one-second baseline anti-spam interval applies otherwise. Signed-in viewers and guests can chat. Guest sessions use a signed, HTTP-only cookie and are rate-limited independently.
 
-Channel owners can timeout a connected viewer for five minutes or ban a registered account from the channel. Timeouts disconnect the current session and restrict chat while allowing the viewer to watch again. Persistent bans prevent the account from obtaining another channel viewer token. Guest viewers can be timed out, but persistent bans require an account. Owners can review and remove bans in Chat settings. Chat is realtime only; message history is not persisted.
+Channel owners can timeout a connected viewer for five minutes or ban a registered account from the channel. Timeouts disconnect the current session and restrict chat while allowing the viewer to watch again. Persistent bans prevent the account from obtaining another channel viewer token. Guest viewers can be timed out, but persistent bans require an account. Owners can review and remove bans in Chat settings. Chat is realtime only; message history is not persisted. The `!watchtime` command reports a viewer's accumulated time in that channel, and `!followage` reports how long they have followed that channel. Watch time is recorded from LiveKit viewer join/leave events, so it is channel-specific and includes guest sessions.
 
 ## Performance and accessibility
 - Keep client-side JavaScript and dependencies lean.
@@ -72,13 +72,13 @@ Vercel is the intended web host; LiveKit remains the separate media infrastructu
 
 ## Verification still required
 CI cannot replace tests against real accounts, media services, devices, and networks:
-- [ ] Apply and review the Prisma schema changes for guest chat rate limits, channel moderation, and broadcast reservations before deploying.
+- [ ] Apply and review the Prisma schema changes for guest chat rate limits, channel moderation, broadcast reservations, and viewer watch sessions before deploying.
 - [ ] Verify Clerk sign-in, sign-out, account provisioning, and deletion webhooks.
 - [ ] Test camera, microphone, screen share, and supported screen-share audio in current desktop and mobile browsers.
 - [ ] Test OBS RTMP and WHIP ingest, browser/encoder source handoff, and duplicate-source prevention.
 - [ ] Test permission denial, capture cancellation, track-ended, navigation cleanup, tab close, Wi-Fi interruption, reconnect, and shutdown.
 - [ ] Verify viewer playback, adaptive quality, audio controls, fullscreen, and LiveKit webhook event ordering.
-- [ ] Test guest and registered chat, slow mode, baseline rate limiting, follower-only chat, disabled chat, timeouts, bans, unbans, blocks, and direct data-publish denial across multiple accounts.
+- [ ] Test guest and registered chat, slow mode, baseline rate limiting, follower-only chat, disabled chat, timeouts, bans, unbans, blocks, direct data-publish denial, `!watchtime`, and `!followage` across multiple accounts.
 - [ ] Verify LiveKit participant removal and token revocation behavior with the configured project.
 - [ ] Measure CPU, memory, bandwidth, startup time, and playback quality on lower-powered phones and desktops.
 - [ ] Validate TURN/TLS connectivity on restrictive networks.
