@@ -1,68 +1,78 @@
-# SchoolStream production audit
+# QuiverLive engineering and production audit
 
-## Implemented in the current development pass
+## Product direction
+
+QuiverLive is a general-purpose livestreaming platform for creators and communities. Browser camera/microphone and screen-share broadcasting are first-class. OBS and other encoders remain supported through LiveKit RTMP/WHIP ingress. The product targets modern desktop and mobile browsers, with lower-powered devices included in performance decisions.
+
+## Implemented foundations
 
 ### Framework and authentication
-- Replaced unsupported Next.js 14.0.4 with patched Next.js 15.5.29.
-- Updated Clerk to 7.10.0 and moved server-side Clerk helpers to the server entry point.
-- Replaced removed legacy authMiddleware usage with clerkMiddleware.
-- Moved ClerkProvider inside the document body.
-- Updated App Router params and searchParams access to the asynchronous Next.js 15 contract.
-- Changed Clerk webhook header access to the Request headers object.
+- Next.js 15.5.29, React 18.3.1, and Clerk 7.10.0.
+- Server-side Clerk helpers and webhook signature verification.
+- App Router async params and server/client boundaries updated for Next.js 15.
 
 ### Chat security
-- Viewer and broadcaster tokens no longer grant client data publishing.
-- Chat is submitted through a server action and relayed with the LiveKit Room Service API.
-- Server checks authenticated user, stream chat state, follower-only access, bidirectional blocks, and message length.
-- Slow mode and baseline anti-spam use an atomic MySQL update against a per-user/per-stream rate-limit row.
-- Chat client now receives server-relayed messages and ignores unrelated data packets.
+- Viewer and broadcaster tokens do not grant client data publishing.
+- Chat is submitted through a server action and relayed with LiveKit Room Service.
+- Server checks authenticated user, stream chat state, follower-only access, bidirectional blocks, message length, and rate limits.
+- Slow mode and baseline anti-spam use an atomic MySQL update against a per-user/per-stream row.
+- Chat is realtime only; history is not persisted. The client caps its in-memory display to 100 messages.
 
-### Stream delivery and device performance
-- Added broadcaster resolution and camera frame-rate controls.
-- Capped screen share at 15 FPS by default.
-- Enabled LiveKit adaptive stream and dynacast.
-- Added screen-share track subscription and attachment to the viewer player.
-- Added retry/error UI when viewer token creation fails instead of leaving a permanent loading skeleton.
+### Stream delivery
+- Browser camera, microphone, and screen-share capture.
+- Browser capture choices include 360p, 540p, and 720p; camera frame-rate choices include 15, 24, and 30 FPS.
+- Screen capture defaults to a maximum of 15 FPS.
+- LiveKit adaptive stream and dynacast are enabled for viewers and browser broadcasters.
+- RTMP and WHIP ingress creation is supported for OBS and compatible encoders.
+- Browser capture tracks are stopped on track-ended, disconnect, explicit stop, and component unmount.
+- The browser broadcast now checks channel availability before prompting for capture permissions and rechecks before connecting.
+- Encoder ingress creation rejects a channel already marked live to reduce browser/encoder source collisions.
 
-### Baseline hardening and CI
-- Added baseline security response headers.
-- CI now runs Prisma validation, npm audit, ESLint, TypeScript, and a production build.
-- Added lockfile regeneration automation after dependency changes.
+### Performance and interface
+- Removed school- and Chromebook-specific product copy.
+- Added a responsive discovery introduction and clearer live-channel listing.
+- Removed the extra Poppins font download from the browse logo.
+- Stream thumbnails now declare responsive image sizes and use a reduced image quality target.
+- Sidebar recommendations and following queries run concurrently.
+- Capture defaults remain conservative; higher resolution/FPS are explicit creator choices.
+
+### CI and dependency hygiene
+- CI uses `npm ci` against the committed lockfile.
+- CI checks Prisma schema validity, ESLint, TypeScript, production build, production high-severity audit, and all-dependency critical-severity audit.
+- The full development dependency audit still has known advisories in the Tailwind/ESLint toolchain; do not describe the entire dependency tree as clean. Avoid unsafe forced major-version downgrades.
 
 ## Important deployment migration
 
-The Prisma schema now contains ChatRateLimit. Apply the schema to the target MySQL database before deploying this branch. For an early-stage database, use the existing db push workflow. For production, create and review a proper migration rather than relying on automatic schema changes.
+The Prisma schema contains `ChatRateLimit`. Apply the schema to the target MySQL database before deploying the server-relayed chat path. For production, create and review a proper migration rather than relying on automatic schema changes.
 
-## Remaining verification gates
+## Remaining checks requiring external services or real devices
 
-The following cannot be truthfully marked complete without the real external services and hardware:
-- Full build and CI result for this exact commit.
-- Real Clerk sign-in, sign-out, provisioning, and deletion webhooks.
-- Real MySQL concurrency test for simultaneous chat messages and rate-limit behavior.
-- LiveKit server sendData compatibility against the configured LiveKit service and installed server SDK.
-- Browser/Chromebook camera, microphone, screen-share audio, and codec compatibility.
-- Browser and RTMP/WHIP source handoff, reconnect, track-ended, and webhook event ordering.
+These cannot be marked complete by repository inspection or CI alone:
+- Full build and CI result for the exact latest commit.
+- Clerk sign-in, sign-out, provisioning, deletion, and webhook delivery.
+- MySQL concurrency tests for simultaneous chat messages and rate-limit behavior.
+- LiveKit Room Service `sendData` compatibility with the configured project and installed SDK.
+- Real camera, microphone, screen-share video/audio, codec, and browser compatibility tests.
+- Browser/RTMP/WHIP handoff, duplicate-source races, reconnects, and webhook event ordering.
+- Viewer playback and audio/fullscreen controls on current desktop and mobile browsers.
+- TURN/TLS connectivity on restrictive networks.
+- CPU, memory, bandwidth, startup time, and playback measurements on lower-powered devices.
 - Vercel Preview deployment and serverless database connection behavior.
 
 ## Known product limitations
-- Chat messages are not persisted as channel history.
-- The chat UI has no moderator timeout/ban command or word-filter system yet; current moderation enforcement covers channel chat settings, follows, blocks, message length, and rate limits.
-- Guests can watch but cannot send chat because chat requires a provisioned SchoolStream account.
-- School network policies can block WebRTC, camera, microphone, or display capture. LiveKit TURN/TLS configuration and testing are required for restrictive networks.
-- The upstream starter's license was not present in its root when audited. Resolve rights before public distribution or commercial operation.
+- Chat history is not persisted.
+- Chat moderation does not yet include moderator timeout/ban commands or word filters.
+- Guests can watch but cannot send chat; chat requires a provisioned account.
+- Live state is synchronized through LiveKit webhooks. Browser/encoder mutual exclusion can still be affected by webhook delivery delay or event ordering and needs real integration testing.
+- Stream discovery is currently bounded to a fixed result set rather than cursor-paginated.
+- The upstream starter did not include a root LICENSE when checked. Confirm rights before public distribution or commercial operation.
 
 ## Branch and deployment safety
-- All work is on development.
-- master remains untouched.
-- No production deployment or Vercel project configuration was performed.
+- Development work stays on `development`.
+- `master` remains untouched unless explicitly authorized.
+- No Vercel deployment is performed automatically.
+- Keep LiveKit API secrets, Clerk secrets, webhook secrets, database credentials, and stream keys private.
 
+## Previous dependency audit snapshot (2026-11-17)
 
-## Dependency audit result (2026-11-17)
-
-The latest CI run (44141693761) passed Prisma validation, ESLint, TypeScript, production build, the production dependency audit at high severity, and the all-dependency critical-severity gate.
-
-The production dependency audit is clean at the configured high-severity threshold. Compatible lockfile fixes upgraded Axios, protobufjs, form-data, jws, follow-redirects, PostCSS, sharp, uuid, and query-string without forcing breaking major-version changes.
-
-The complete development dependency audit still reports 21 advisories (3 moderate, 18 high). The high findings are concentrated in picomatch used by Tailwind/ESLint/type-analysis tooling; the moderate findings include glob/minimatch in the same build-tool chain. The current npm picomatch release is 4.0.7, and the published advisory affects versions through 4.0.7 without identifying a patched release. Do not use npm audit fix --force: npm proposed downgrading eslint-config-next to 14.2.35, which would be an unsafe and incompatible workaround. Monitor the upstream advisory and upgrade the affected development toolchain when a compatible patched release is published.
-
-This is a development/build-tool risk, not a clean full audit. CI deliberately blocks high vulnerabilities in production dependencies and any critical vulnerability across all dependencies while the upstream picomatch fix is pending.
+The last recorded complete CI run passed Prisma validation, ESLint, TypeScript, production build, the production dependency audit at high severity, and the all-dependency critical-severity gate. The complete development dependency audit still reported 21 advisories (3 moderate, 18 high), concentrated in Picomatch and related Tailwind/ESLint tooling. Treat this as a historical snapshot and rerun audits for the current lockfile before release.

@@ -6,11 +6,11 @@ import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
-  title: { template: "%s | SchoolStream", default: "SchoolStream" },
-  description: "SchoolStream is a community livestreaming platform built for accessible broadcasting and watching on school Chromebooks.",
+  title: { template: "%s | QuiverLive", default: "QuiverLive" },
+  description: "Discover live creators, watch streams, and broadcast directly from your browser or with OBS.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={inter.className}>
         <ClerkProvider afterSignOutUrl="/" appearance={{ theme: dark }}>
-          <ThemeProvider attribute="class" forcedTheme="dark" storageKey="schoolstream-theme">
+          <ThemeProvider attribute="class" forcedTheme="dark" storageKey="quiverlive-theme">
             <Toaster theme="dark" position="bottom-center" />
             {children}
           </ThemeProvider>

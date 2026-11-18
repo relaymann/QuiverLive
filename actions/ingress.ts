@@ -24,8 +24,6 @@ export const createIngress = async (ingressType: IngressInput) => {
     throw new Error("LiveKit server credentials are not configured");
   }
 
-  const ingressClient = new IngressClient(apiUrl, apiKey, apiSecret);
-
   if (
     ingressType !== IngressInput.RTMP_INPUT &&
     ingressType !== IngressInput.WHIP_INPUT
@@ -33,6 +31,16 @@ export const createIngress = async (ingressType: IngressInput) => {
     throw new Error("Unsupported ingress type");
   }
 
+  const stream = await db.stream.findUnique({
+    where: { userId: self.id },
+    select: { id: true, isLive: true },
+  });
+  if (!stream) throw new Error("No stream is configured for this account");
+  if (stream.isLive) {
+    throw new Error("Your channel is already live. End the current browser or encoder broadcast before changing its ingest connection.");
+  }
+
+  const ingressClient = new IngressClient(apiUrl, apiKey, apiSecret);
   await resetIngresses(self.id);
 
   const options: CreateIngressOptions = {
@@ -56,7 +64,6 @@ export const createIngress = async (ingressType: IngressInput) => {
   }
 
   const ingress = await ingressClient.createIngress(ingressType, options);
-
   if (!ingress?.ingressId || !ingress.url || !ingress.streamKey) {
     throw new Error("Failed to create ingress");
   }

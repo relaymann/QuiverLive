@@ -20,7 +20,7 @@ export function Thumbnail({
 
   if (!src) {
     content = (
-      <div className="bg-background flex flex-col items-center justify-center gap-y-4 h-full w-full transition-transform group-hover:translate-x-2 group-hover:-translate-y-2 rounded-md">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-y-4 rounded-md bg-background transition-transform group-hover:-translate-y-1">
         <UserAvatar
           size="lg"
           showBadge
@@ -35,18 +35,19 @@ export function Thumbnail({
       <Image
         src={src}
         fill
-        alt="Thumbnail"
-        className="object-cover transition-transform group-hover:translate-x-2 group-hover:-translate-y-2 rounded-md"
+        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+        quality={75}
+        alt={`${username}'s stream thumbnail`}
+        className="rounded-md object-cover transition-transform duration-300 group-hover:scale-[1.02]"
       />
     );
   }
 
   return (
-    <div className="group aspect-video relative rounded-md cursor-pointer">
-      <div className="rounded-md absolute inset-0 bg-blue-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" />
+    <div className="group relative aspect-video cursor-pointer overflow-hidden rounded-md bg-white/5 ring-1 ring-white/10">
       {content}
-      {isLive && src && (
-        <div className="absolute top-2 left-2 group-hover:translate-x-2 group-hover:-translate-y-2 transition-transform">
+      {isLive && (
+        <div className="absolute left-2 top-2">
           <LiveBadge />
         </div>
       )}
@@ -56,7 +57,7 @@ export function Thumbnail({
 
 export function ThumbnailSkeleton() {
   return (
-    <div className="group aspect-video relative rounded-xl cursor-pointer">
+    <div className="group relative aspect-video overflow-hidden rounded-xl">
       <Skeleton className="h-full w-full" />
     </div>
   );

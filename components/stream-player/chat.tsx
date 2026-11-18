@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useMediaQuery } from "usehooks-ts";
 import { useConnectionState, useRemoteParticipant, useRoomContext } from "@livekit/components-react";
 import { Participant, RoomEvent, ConnectionState } from "livekit-client";
@@ -9,7 +9,7 @@ import { sendChatMessage } from "@/actions/chat";
 import { ChatVariant, useChatSidebar } from "@/store/use-chat-sidebar";
 import { ChatHeader, ChatHeaderSkeleton } from "./chat-header";
 import { ChatForm, ChatFormSkeleton } from "./chat-form";
-import { ChatList, ChatListSkeleton, SchoolStreamChatMessage } from "./chat-list";
+import { ChatList, ChatListSkeleton, QuiverLiveChatMessage } from "./chat-list";
 import { ChatCommunity } from "./chat-community";
 
 type ServerChatPacket = { id: string; message: string; timestamp: number; senderId: string; senderName: string };
@@ -26,21 +26,23 @@ export function Chat({ hostName, hostIdentity, viewerName, isFollowing, isChatEn
   const isOnline = participant && connectionState === ConnectionState.Connected;
   const isHidden = !isChatEnabled || !isOnline;
   const [value, setValue] = useState("");
-  const [messages, setMessages] = useState<SchoolStreamChatMessage[]>([]);
+  // New messages are prepended; the reversed flex column keeps the newest at
+  // the bottom without sorting the same bounded list on every render.
+  const [messages, setMessages] = useState<QuiverLiveChatMessage[]>([]);
 
   useEffect(() => {
     const onDataReceived = (payload: Uint8Array, sender?: Participant) => {
-      // Only accept server-originated packets. This rejects messages sent by
-      // still-valid older client tokens that may have had data publishing.
       if (sender) return;
       try {
         const packet = JSON.parse(new TextDecoder().decode(payload)) as Partial<ServerChatPacket>;
         if (typeof packet.id !== "string" || typeof packet.message !== "string" || typeof packet.timestamp !== "number") return;
-        const item: SchoolStreamChatMessage = {
-          id: packet.id, timestamp: new Date(packet.timestamp), message: packet.message,
+        const item: QuiverLiveChatMessage = {
+          id: packet.id,
+          timestamp: new Date(packet.timestamp),
+          message: packet.message,
           from: { name: packet.senderName || "Viewer", identity: packet.senderId },
         };
-        setMessages((current) => [...current.slice(-99), item]);
+        setMessages((current) => [item, ...current].slice(0, 100));
       } catch { /* Ignore unrelated LiveKit packets. */ }
     };
     room.on(RoomEvent.DataReceived, onDataReceived);
@@ -48,17 +50,20 @@ export function Chat({ hostName, hostIdentity, viewerName, isFollowing, isChatEn
   }, [room]);
 
   useEffect(() => { if (matches) onExpand(); }, [matches, onExpand]);
-  const orderedMessages = useMemo(() => [...messages].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()), [messages]);
 
   const onSubmit = async () => {
-    try { await sendChatMessage(hostIdentity, value); setValue(""); }
-    catch (error) { toast.error(error instanceof Error ? error.message : "Unable to send your message"); }
+    try {
+      await sendChatMessage(hostIdentity, value);
+      setValue("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to send your message");
+    }
   };
 
-  return <div className="flex flex-col bg-background border-l border-b pt-0 h-[calc(100vh-80px)]">
+  return <div className="flex h-[calc(100vh-80px)] flex-col border-b border-l bg-background pt-0">
     <ChatHeader />
     {variant === ChatVariant.CHAT && <>
-      <ChatList messages={orderedMessages} isHidden={isHidden} />
+      <ChatList messages={messages} isHidden={isHidden} />
       <ChatForm onSubmit={onSubmit} value={value} onChange={setValue} isHidden={isHidden}
         isFollowersOnly={isChatFollowersOnly} isDelayed={isChatDelayed} isFollowing={isFollowing} />
     </>}
@@ -67,5 +72,5 @@ export function Chat({ hostName, hostIdentity, viewerName, isFollowing, isChatEn
 }
 
 export function ChatSkeleton() {
-  return <div className="flex flex-col border-l border-b pt-0 h-[calc(100vh-80px)] border-2"><ChatHeaderSkeleton /><ChatListSkeleton /><ChatFormSkeleton /></div>;
+  return <div className="flex h-[calc(100vh-80px)] flex-col border-2 border-b border-l pt-0"><ChatHeaderSkeleton /><ChatListSkeleton /><ChatFormSkeleton /></div>;
 }

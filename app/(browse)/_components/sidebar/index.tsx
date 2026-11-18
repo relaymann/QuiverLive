@@ -9,8 +9,12 @@ import { Recommended, RecommendedSkeleton } from "./recommended";
 import { Following, FollowingSkeleton } from "./following";
 
 export async function Sidebar() {
-  const recommended = await getRecommended();
-  const following = await getFollwedUser();
+  // These independent reads can run together instead of serializing the
+  // sidebar's two database-backed sections.
+  const [recommended, following] = await Promise.all([
+    getRecommended(),
+    getFollwedUser(),
+  ]);
 
   return (
     <Wrapper>
@@ -25,7 +29,7 @@ export async function Sidebar() {
 
 export function SidebarSkeleton() {
   return (
-    <aside className="fixed left-0 flex flex-col w-[70px] lg:w-60 h-full bg-background border-r border-[#2D2E35 z-50]">
+    <aside className="fixed left-0 z-50 flex h-full w-[70px] flex-col border-r border-[#2D2E35] bg-background lg:w-60">
       <ToggleSkeleton />
       <FollowingSkeleton />
       <RecommendedSkeleton />

@@ -10,7 +10,9 @@ import { assertCanStartBrowserBroadcast } from "@/actions/token";
 type BroadcastStatus = "idle" | "starting" | "live" | "reconnecting";
 type Quality = "360p" | "540p" | "720p";
 const DIMENSIONS: Record<Quality, { width: number; height: number }> = {
-  "360p": { width: 640, height: 360 }, "540p": { width: 960, height: 540 }, "720p": { width: 1280, height: 720 },
+  "360p": { width: 640, height: 360 },
+  "540p": { width: 960, height: 540 },
+  "720p": { width: 1280, height: 720 },
 };
 
 export function BrowserBroadcast({ token, hostIdentity }: { token: string; hostIdentity: string }) {
@@ -32,11 +34,12 @@ export function BrowserBroadcast({ token, hostIdentity }: { token: string; hostI
   const stopBroadcast = useCallback(async () => {
     const room = roomRef.current;
     const tracks = tracksRef.current;
-    // Clear refs before disconnecting so the Disconnected event does not treat
-    // an intentional stop as an unexpected network failure.
     roomRef.current = null;
     tracksRef.current = [];
-    tracks.forEach((track) => { if (room) void room.localParticipant.unpublishTrack(track); track.stop(); });
+    tracks.forEach((track) => {
+      if (room) void room.localParticipant.unpublishTrack(track);
+      track.stop();
+    });
     if (room) await room.disconnect();
     setPreviewTrack(null);
     setStatus("idle");
@@ -47,7 +50,10 @@ export function BrowserBroadcast({ token, hostIdentity }: { token: string; hostI
     roomRef.current = null;
     const tracks = tracksRef.current;
     tracksRef.current = [];
-    tracks.forEach((track) => { if (room) void room.localParticipant.unpublishTrack(track); track.stop(); });
+    tracks.forEach((track) => {
+      if (room) void room.localParticipant.unpublishTrack(track);
+      track.stop();
+    });
     if (room) void room.disconnect();
   }, []);
 
@@ -56,17 +62,35 @@ export function BrowserBroadcast({ token, hostIdentity }: { token: string; hostI
     setStatus("starting");
     let room: Room | null = null;
     let tracks: LocalTrack[] = [];
+
     try {
-      const resolution = { ...DIMENSIONS[quality], frameRate: mode === "screen" ? Math.min(frameRate, 15) : frameRate };
-      tracks = mode === "camera"
-        ? await createLocalTracks({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: { resolution, facingMode: "user" } })
-        : await createLocalScreenTracks({ audio: true, resolution });
-      const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_WS_URL;
-      if (!serverUrl) throw new Error("LiveKit is not configured for browser broadcasting");
-      tracksRef.current = tracks;
+      // Check channel ownership and source state before asking the browser for
+      // camera/screen permissions, then recheck immediately before connecting.
       await assertCanStartBrowserBroadcast(hostIdentity);
+
+      const resolution = {
+        ...DIMENSIONS[quality],
+        frameRate: mode === "screen" ? Math.min(frameRate, 15) : frameRate,
+      };
+      tracks = mode === "camera"
+        ? await createLocalTracks({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: { resolution, facingMode: "user" },
+          })
+        : await createLocalScreenTracks({ audio: true, resolution });
+
+      tracksRef.current = tracks;
       room = new Room({ adaptiveStream: true, dynacast: true });
       roomRef.current = room;
+
+      // Listen as soon as capture tracks exist so a source ending during
+      // connection or publication cannot leave a half-live broadcast behind.
+      tracks.forEach((track) => {
+        track.mediaStreamTrack.addEventListener("ended", () => {
+          if (roomRef.current === room) void stopBroadcast();
+        }, { once: true });
+      });
+
       room.on(RoomEvent.Reconnecting, () => {
         if (roomRef.current === room) setStatus("reconnecting");
       });
@@ -80,25 +104,28 @@ export function BrowserBroadcast({ token, hostIdentity }: { token: string; hostI
         tracks.forEach((track) => track.stop());
         setPreviewTrack(null);
         setStatus("idle");
-        toast.error("Your broadcast connection was lost. Please start again.");
+        toast.error("Your broadcast connection was lost. Start again when your connection is stable.");
       });
+
+      await assertCanStartBrowserBroadcast(hostIdentity);
+      const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_WS_URL;
+      if (!serverUrl) throw new Error("LiveKit is not configured for browser broadcasting");
       await room.connect(serverUrl, token);
-      for (const track of tracks) await room.localParticipant.publishTrack(track);
+      if (roomRef.current !== room) return;
+
+      for (const track of tracks) {
+        await room.localParticipant.publishTrack(track);
+        if (roomRef.current !== room) return;
+      }
+
       const videoTrack = tracks.find((track) => track.kind === Track.Kind.Video) as LocalVideoTrack | undefined;
       if (videoTrack) setPreviewTrack(videoTrack);
-      // Stop the whole broadcast if any captured source ends, including a
-      // microphone or screen-share audio track ending independently.
-      tracks.forEach((track) => {
-        track.mediaStreamTrack.addEventListener("ended", () => {
-          if (roomRef.current === room) void stopBroadcast();
-        }, { once: true });
-      });
       setStatus("live");
-      toast.success(mode === "camera" ? "Camera is live" : "Screen is live");
+      toast.success(mode === "camera" ? "Camera broadcast is live" : "Screen broadcast is live");
     } catch (error) {
       tracks.forEach((track) => track.stop());
       if (roomRef.current === room) roomRef.current = null;
-      tracksRef.current = [];
+      if (tracksRef.current === tracks) tracksRef.current = [];
       if (room) await room.disconnect();
       setPreviewTrack(null);
       setStatus("idle");
@@ -107,29 +134,54 @@ export function BrowserBroadcast({ token, hostIdentity }: { token: string; hostI
     }
   };
 
-  return <section className="rounded-xl border bg-background p-4 space-y-4">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h2 className="font-semibold">Browser broadcasting</h2><p className="text-sm text-muted-foreground">Go live with your camera or share your screen. No OBS required.</p></div>
-      <span className={status === "live" ? "text-xs font-semibold text-rose-500" : "text-xs text-muted-foreground"} aria-live="polite">{status === "live" ? "LIVE" : status === "reconnecting" ? "Reconnecting…" : status === "starting" ? "Connecting…" : "Offline"}</span>
-    </div>
-    {previewTrack && <div className="overflow-hidden rounded-lg bg-black aspect-video"><video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-contain" /></div>}
-    <div className="flex flex-wrap items-end gap-3">
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">Video quality
-        <select className="h-9 rounded-md border bg-background px-2 text-sm text-foreground" value={quality} onChange={(e) => setQuality(e.target.value as Quality)} disabled={status !== "idle"}>
-          <option value="360p">360p · low-power</option><option value="540p">540p · balanced</option><option value="720p">720p · higher detail</option>
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">Camera frame rate
-        <select className="h-9 rounded-md border bg-background px-2 text-sm text-foreground" value={frameRate} onChange={(e) => setFrameRate(Number(e.target.value))} disabled={status !== "idle"}>
-          <option value={15}>15 FPS · low CPU</option><option value={24}>24 FPS · balanced</option><option value={30}>30 FPS · smoother</option>
-        </select>
-      </label>
-    </div>
-    <div className="flex flex-wrap gap-2">
-      <Button type="button" onClick={() => void startBroadcast("camera")} disabled={status !== "idle"}><Camera className="mr-2 h-4 w-4" />Start camera</Button>
-      <Button type="button" variant="secondary" onClick={() => void startBroadcast("screen")} disabled={status !== "idle"}><MonitorUp className="mr-2 h-4 w-4" />Share screen</Button>
-      {status !== "idle" && <Button type="button" variant="destructive" onClick={() => void stopBroadcast()} disabled={status === "starting"}><Square className="mr-2 h-4 w-4" />Stop broadcast</Button>}
-    </div>
-    <p className="text-xs text-muted-foreground">Screen sharing is capped at 15 FPS to reduce Chromebook CPU and network load. School policies may restrict capture permissions.</p>
-  </section>;
+  return (
+    <section className="space-y-4 rounded-xl border border-white/10 bg-background p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-semibold">Broadcast from your browser</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Go live with your camera and microphone or share your screen. No encoder required.</p>
+        </div>
+        <span className={status === "live" ? "text-xs font-semibold text-rose-500" : "text-xs text-muted-foreground"} aria-live="polite">
+          {status === "live" ? "LIVE" : status === "reconnecting" ? "Reconnecting…" : status === "starting" ? "Connecting…" : "Offline"}
+        </span>
+      </div>
+      {previewTrack && (
+        <div className="aspect-video overflow-hidden rounded-lg bg-black">
+          <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-contain" />
+        </div>
+      )}
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+          Video quality
+          <select className="h-9 rounded-md border bg-background px-2 text-sm text-foreground" value={quality} onChange={(e) => setQuality(e.target.value as Quality)} disabled={status !== "idle"}>
+            <option value="360p">360p · lower bandwidth</option>
+            <option value="540p">540p · balanced</option>
+            <option value="720p">720p · higher detail</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+          Camera frame rate
+          <select className="h-9 rounded-md border bg-background px-2 text-sm text-foreground" value={frameRate} onChange={(e) => setFrameRate(Number(e.target.value))} disabled={status !== "idle"}>
+            <option value={15}>15 FPS · lower CPU</option>
+            <option value={24}>24 FPS · balanced</option>
+            <option value={30}>30 FPS · smoother</option>
+          </select>
+        </label>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" onClick={() => void startBroadcast("camera")} disabled={status !== "idle"}>
+          <Camera className="mr-2 h-4 w-4" />Start camera
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => void startBroadcast("screen")} disabled={status !== "idle"}>
+          <MonitorUp className="mr-2 h-4 w-4" />Share screen
+        </Button>
+        {status !== "idle" && (
+          <Button type="button" variant="destructive" onClick={() => void stopBroadcast()} disabled={status === "starting"}>
+            <Square className="mr-2 h-4 w-4" />Stop broadcast
+          </Button>
+        )}
+      </div>
+      <p className="text-xs leading-5 text-muted-foreground">Screen sharing is capped at 15 FPS by default to reduce CPU and bandwidth use. Available capture options depend on your browser and device.</p>
+    </section>
+  );
 }

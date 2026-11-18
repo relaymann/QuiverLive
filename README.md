@@ -1,92 +1,93 @@
-# SchoolStream
+# QuiverLive
 
-SchoolStream is a Twitch-style livestreaming platform focused on a lightweight, accessible experience for school Chromebooks.
+QuiverLive is a general-purpose livestreaming platform for creators and communities. Viewers can discover channels, follow creators, watch live broadcasts, and participate in real-time chat. Creators can broadcast directly from a supported browser or connect streaming software such as OBS.
 
-## Upstream attribution
+## Product principles
 
-This project builds on the starter at [nayak-nirmalya/twitch-clone](https://github.com/nayak-nirmalya/twitch-clone), whose README credits [Antonio Erdeljac](https://github.com/AntonioErdeljac). SchoolStream is an independent fork and is being substantially modified.
-
-The upstream repository did not contain a LICENSE file when checked. Confirm applicable permissions and licensing before distributing or operating a public derivative service.
+- Browser broadcasting is a first-class path: camera, microphone, and screen sharing without requiring OBS.
+- OBS and other compatible encoders remain supported through LiveKit RTMP/WHIP ingress.
+- Stream quality, reliability, accessibility, and efficient resource use are core requirements.
+- The interface is designed for modern desktop and mobile browsers, including lower-powered devices.
+- Development stays on `development`; `master` remains the stable branch until an explicit release decision.
 
 ## Current stack
 
-- Next.js 15.5 Maintenance LTS and React 18
-- Clerk 7 authentication
+- Next.js 15.5 and React 18
+- Clerk authentication
 - Prisma with MySQL
-- LiveKit for real-time audio/video and server-relayed chat
+- LiveKit for real-time audio/video, RTMP/WHIP ingress, and server-relayed chat
 - UploadThing for stream thumbnails
 
-## Broadcasting and Chromebook performance
+## Broadcasting
 
-- Browser camera and microphone broadcasting, plus RTMP/WHIP for OBS
-- Browser screen sharing, including audio where supported by the browser
-- Browser capture options: 360p, 540p, 720p; camera 15, 24, or 30 FPS
-- Screen capture is capped at 15 FPS by default to reduce CPU and bandwidth
-- LiveKit adaptive stream and dynacast are enabled for viewers
-- Player supports camera and screen-share tracks
+### Browser broadcasting
+
+Creators can go live directly from the creator dashboard using a camera and microphone or by sharing their screen. The browser flow supports selectable 360p, 540p, and 720p capture, plus 15, 24, or 30 FPS camera capture. Screen sharing is capped at 15 FPS by default to reduce CPU and bandwidth use. Browser support and available capture controls depend on the device and browser.
+
+### OBS and encoder support
+
+Creators can configure an RTMP or WHIP ingest endpoint from the channel's **Keys & URLs** page and connect OBS or another compatible encoder. RTMP uses LiveKit ingress transcoding presets; WHIP uses bypass transcoding. Keep stream keys private and regenerate them if they are exposed.
+
+Browser and encoder broadcasting are intended to be mutually exclusive for a channel. The platform uses LiveKit adaptive streaming and dynacast for viewer delivery.
 
 ## Chat enforcement
 
 Chat messages are relayed by the server. Viewer tokens do not grant data publishing, preventing browser clients from bypassing server checks by sending raw LiveKit packets.
 
-The server checks chat-enabled status, follower-only access, blocks in both directions, and a 300-character message limit. Database-backed per-user/per-channel rate limits enforce three seconds between messages in slow mode and a one-second baseline anti-spam interval. The atomic database update works across multiple serverless instances.
+The server checks chat-enabled status, follower-only access, blocks in both directions, and a 300-character message limit. Database-backed per-user/per-channel rate limits enforce three seconds between messages in slow mode and a one-second baseline anti-spam interval. Chat is realtime only; message history is not yet persisted.
 
-Chat is realtime only. Message history is not yet persisted, and viewers joining after a message was sent do not receive that message.
+## Performance and accessibility
+
+- Keep client-side JavaScript and dependencies lean.
+- Load media only when needed; avoid eager playback of off-screen streams.
+- Use responsive layouts and appropriately sized images.
+- Keep capture defaults conservative and let creators opt into higher quality.
+- Clean up media tracks and LiveKit rooms on stop, disconnect, and navigation.
+- Respect reduced-motion preferences and provide keyboard-accessible controls.
+- Measure real device and network behavior; do not claim zero latency or universal compatibility.
 
 ## Local development
 
 1. Install Node.js 22 LTS and npm.
-2. Run npm install.
-3. Copy .env.example to .env.local and configure the required credentials.
-4. Run npx prisma generate.
-5. Apply the schema to MySQL with npx prisma db push (or your established migration workflow). This creates the ChatRateLimit table required by server-enforced chat.
-6. Run npm run typecheck, npm run lint, and npm run build.
-7. Start with npm run dev.
+2. Run `npm ci`.
+3. Copy `.env.example` to `.env.local` and configure credentials privately.
+4. Run `npx prisma generate`.
+5. Apply the schema to MySQL with `npx prisma db push` for development, or use reviewed migrations for production.
+6. Run `npm run typecheck`, `npm run lint`, and `npm run build`.
+7. Start with `npm run dev`.
 
-## CI checks
+## Required environment variables
 
-GitHub Actions runs dependency installation, Prisma validation, npm audit, ESLint, TypeScript checks, and a production build. A lockfile workflow regenerates package-lock.json when package.json changes on development.
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `CLERK_WEBHOOK_SECRET`
+- `DATABASE_URL`
+- `LIVEKIT_API_URL` (server-side HTTPS API URL)
+- `LIVEKIT_API_KEY`
+- `LIVEKIT_API_SECRET`
+- `NEXT_PUBLIC_LIVEKIT_WS_URL` (browser-facing WSS URL)
+- `UPLOADTHING_SECRET`
+- `UPLOADTHING_APP_ID`
 
-## Deploying to Vercel
+LiveKit's server API URL and browser WebSocket URL are different values. Never expose API secrets, webhook secrets, database credentials, or stream keys in client-side code or public repositories.
 
-Vercel is the intended web host. Do not deploy production until the runtime checks below pass.
+## Deployment
 
-1. Import relaymann/SchoolStream into Vercel.
-2. Use development for preview deployments during development. Keep master stable until the release is ready.
-3. Keep the Next.js framework preset and let Next.js manage the build output.
-4. Configure the environment variables below separately for Preview and Production.
-5. Configure Clerk's webhook at https://YOUR_DOMAIN/api/webhooks/clerk.
-6. Configure LiveKit's webhook at https://YOUR_DOMAIN/api/webhooks/livekit.
-7. Add the deployed domain to Clerk's allowed origins and redirect settings.
+Vercel is the intended web host; LiveKit remains the separate media infrastructure. Do not deploy production until external-service and device checks pass. Configure Clerk and LiveKit webhooks at `/api/webhooks/clerk` and `/api/webhooks/livekit` on the deployed domain. Use a managed MySQL database with serverless-appropriate connection pooling.
 
-### Required environment variables
+## Verification still required
 
-- NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-- CLERK_SECRET_KEY
-- CLERK_WEBHOOK_SECRET
-- DATABASE_URL
-- LIVEKIT_API_URL
-- LIVEKIT_API_KEY
-- LIVEKIT_API_SECRET
-- NEXT_PUBLIC_LIVEKIT_WS_URL
-- UPLOADTHING_SECRET
-- UPLOADTHING_APP_ID
+CI cannot replace tests against real accounts, media services, devices, and networks:
 
-Use a managed MySQL database with serverless-appropriate connection pooling. LiveKit is a separate media service; Vercel does not provide media ingress or egress infrastructure. Never expose secret keys, webhook secrets, database credentials, or stream keys in client-side code.
+- [ ] Verify Clerk sign-in, sign-out, account provisioning, and deletion webhooks.
+- [ ] Test camera, microphone, screen share, and supported screen-share audio in current desktop and mobile browsers.
+- [ ] Test OBS RTMP and WHIP ingest, browser/encoder source handoff, and duplicate-source prevention.
+- [ ] Test permission denial, capture cancellation, track-ended, navigation cleanup, tab close, Wi-Fi interruption, reconnect, and shutdown.
+- [ ] Verify viewer playback, adaptive quality, audio controls, fullscreen, and LiveKit webhook event ordering.
+- [ ] Test slow mode, baseline rate limiting, follower-only chat, disabled chat, blocks, and direct data-publish denial across multiple accounts.
+- [ ] Apply the Prisma schema update containing `ChatRateLimit` before deploying the server-relayed chat path.
+- [ ] Measure CPU, memory, bandwidth, startup time, and playback quality on lower-powered phones and desktops.
+- [ ] Validate TURN/TLS connectivity on restrictive networks.
+- [ ] Confirm upstream starter licensing and distribution rights before public operation.
 
-## Runtime verification required before production
-
-These tests require real Clerk, MySQL, LiveKit, UploadThing, and browser credentials/devices. CI cannot substitute for them.
-
-- [ ] Create, sign in, and delete accounts; verify Clerk webhook provisioning and deletion.
-- [ ] Verify public routes work signed out and dashboard pages/actions reject signed-out users.
-- [ ] Test follow, unfollow, block, unblock, bio edits, and follower-only chat across two accounts.
-- [ ] Test disabled chat, normal rate limiting, slow mode, and block enforcement. Attempt direct LiveKit data publishing and confirm it is denied.
-- [ ] Broadcast camera, microphone, and screen share from a Chromebook; verify viewers receive video and supported audio.
-- [ ] Test RTMP/WHIP and browser broadcast mutual exclusion in both directions.
-- [ ] Test permission denial, screen-share cancellation, track-ended, navigation, tab close, Wi-Fi interruption, reconnect, and shutdown.
-- [ ] Test 360p/540p/720p and camera 15/24/30 FPS on low-powered hardware; measure CPU, memory, and network usage.
-- [ ] Verify LiveKit webhook delivery for ingress_started, ingress_ended, participant_joined, and participant_left.
-- [ ] Apply the Prisma schema update before enabling the new chat path in any deployed environment.
-
-Development work remains on the development branch. master is not modified by this work. No Vercel deployment is performed automatically.
+Development work remains on `development`. `master` is not modified and no Vercel deployment is performed automatically.

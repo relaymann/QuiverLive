@@ -1,4 +1,4 @@
-name: SchoolStream CI
+name: QuiverLive CI
 
 on:
   push:
@@ -7,16 +7,16 @@ on:
     branches: [development, master]
 
 concurrency:
-  group: schoolstream-ci-${{ github.ref }}
+  group: quiverlive-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: mysql://schoolstream:schoolstream@127.0.0.1:3306/schoolstream
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_c2Nob29sc3RyZWFtLmNvbSQ
-      CLERK_SECRET_KEY: sk_test_schoolstream_ci_placeholder
+      DATABASE_URL: mysql://quiverlive:quiverlive@127.0.0.1:3306/quiverlive
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_cXVpdmVybGl2ZS5jb20k
+      CLERK_SECRET_KEY: sk_test_quiverlive_ci_placeholder
       NEXT_PUBLIC_LIVEKIT_WS_URL: wss://example.livekit.cloud
     steps:
       - uses: actions/checkout@v4
