@@ -1,0 +1,82 @@
+name: Generate PostgreSQL baseline
+
+on:
+  push:
+    branches: [development]
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "prisma/schema.prisma"
+      - "scripts/generate-postgres-baseline.sh"
+      - ".github/workflows/postgres-baseline.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: postgres-baseline-development
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    if: github.ref == 'refs/heads/development'
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/schoolstream
+      DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/schoolstream
+    steps:
+      - name: Check out development
+        uses: actions/checkout@v4
+        with:
+          ref: development
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Generate or verify baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline="prisma/migrations/20261118000000_init_postgresql/migration.sql"
+
+          if [[ -s "$baseline" ]]; then
+            npx prisma migrate diff \
+              --from-empty \
+              --to-schema-datamodel prisma/schema.prisma \
+              --script > /tmp/schoolstream-baseline.sql
+            diff -u "$baseline" /tmp/schoolstream-baseline.sql
+            echo "Committed baseline matches the current Prisma schema."
+          else
+            npm run db:generate-baseline
+            test -s "$baseline"
+          fi
+
+          git diff --check
+
+      - name: Open a review pull request for a newly generated baseline
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: development
+          branch: automation/postgresql-baseline
+          delete-branch: true
+          add-paths: prisma/migrations/20261118000000_init_postgresql/migration.sql
+          commit-message: "Add PostgreSQL baseline migration"
+          title: "Add PostgreSQL baseline migration"
+          body: |
+            This pull request contains the PostgreSQL baseline generated from
+            `prisma/schema.prisma` by the repository's existing baseline script.
+
+            Please review the SQL before merging. This workflow does not connect
+            to Supabase or apply migrations to any database.
