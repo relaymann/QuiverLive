@@ -77,7 +77,8 @@ export async function POST(req: Request) {
       // Viewer sessions are keyed by LiveKit participant SID, not identity, so
       // reconnects create distinct sessions and delayed leave events cannot close
       // a newer connection from the same account.
-      if (!source && !participantIdentity.startsWith(`host-`) && event.participant?.sid) {
+      if (!source && !participantIdentity.startsWith(`host-`) && event.participant?.sid &&
+        (event.event === "participant_joined" || event.event === "participant_left")) {
         const stream = await db.stream.findUnique({
           where: { userId: roomName },
           select: { id: true },
