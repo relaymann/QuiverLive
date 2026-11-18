@@ -21,6 +21,7 @@ model User {
   blockedBy  Block[]  @relation("BlockedBy")
   stream         Stream?
   chatRateLimits ChatRateLimit[]
+  moderatedInChannels ChatModeration[] @relation("ModeratedParticipant")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -36,13 +37,19 @@ model Stream {
   isChatEnabled       Boolean @default(true)
   isChatDelayed       Boolean @default(false)
   isChatFollowersOnly Boolean @default(false)
+  broadcastSource     String? @db.VarChar(16)
+  broadcastSessionId String? @db.VarChar(64)
+  broadcastLeaseExpiresAt DateTime?
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   chatRateLimits ChatRateLimit[]
+  guestChatRateLimits GuestChatRateLimit[]
+  chatModerations ChatModeration[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@index([userId])
   @@index([ingressId])
+  @@index([broadcastSessionId])
   @@fulltext([name])
 }
 
@@ -55,6 +62,32 @@ model ChatRateLimit {
   sender User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
   @@unique([streamId, senderId])
   @@index([nextAllowedAt])
+}
+
+model GuestChatRateLimit {
+  id            String   @id @default(uuid())
+  streamId      String
+  senderIdentity String @db.VarChar(128)
+  nextAllowedAt DateTime @default(now())
+  stream Stream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  @@unique([streamId, senderIdentity])
+  @@index([nextAllowedAt])
+}
+
+model ChatModeration {
+  id                  String   @id @default(uuid())
+  streamId            String
+  participantIdentity String   @db.VarChar(128)
+  participantUserId   String?
+  isBanned            Boolean  @default(false)
+  timedOutUntil       DateTime?
+  stream Stream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  participantUser User? @relation("ModeratedParticipant", fields: [participantUserId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([streamId, participantIdentity])
+  @@index([streamId, isBanned])
+  @@index([timedOutUntil])
 }
 
 model Follow {

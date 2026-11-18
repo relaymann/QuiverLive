@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useMediaQuery } from "usehooks-ts";
-import { useConnectionState, useRemoteParticipant, useRoomContext } from "@livekit/components-react";
+import { useConnectionState, useParticipants, useRoomContext } from "@livekit/components-react";
 import { Participant, RoomEvent, ConnectionState } from "livekit-client";
 import { toast } from "sonner";
 import { sendChatMessage } from "@/actions/chat";
@@ -14,20 +14,20 @@ import { ChatCommunity } from "./chat-community";
 
 type ServerChatPacket = { id: string; message: string; timestamp: number; senderId: string; senderName: string };
 
-export function Chat({ hostName, hostIdentity, viewerName, isFollowing, isChatEnabled, isChatDelayed, isChatFollowersOnly }: {
-  hostName: string; hostIdentity: string; viewerName: string; isFollowing: boolean;
+export function Chat({ hostName, hostIdentity, viewerName, viewerIdentity, isFollowing, isChatEnabled, isChatDelayed, isChatFollowersOnly }: {
+  hostName: string; hostIdentity: string; viewerName: string; viewerIdentity: string; isFollowing: boolean;
   isChatEnabled: boolean; isChatDelayed: boolean; isChatFollowersOnly: boolean;
 }) {
   const matches = useMediaQuery("(max-width: 1024px)");
   const { variant, onExpand } = useChatSidebar((state) => state);
   const connectionState = useConnectionState();
-  const participant = useRemoteParticipant(hostIdentity);
+  const participants = useParticipants();
+  const publisherPrefixes = [`browser-${hostIdentity}-`, `ingress-${hostIdentity}-`];
+  const isOnline = participants.some((participant) => publisherPrefixes.some((prefix) => participant.identity.startsWith(prefix))) &&
+    connectionState === ConnectionState.Connected;
   const room = useRoomContext();
-  const isOnline = participant && connectionState === ConnectionState.Connected;
   const isHidden = !isChatEnabled || !isOnline;
   const [value, setValue] = useState("");
-  // New messages are prepended; the reversed flex column keeps the newest at
-  // the bottom without sorting the same bounded list on every render.
   const [messages, setMessages] = useState<QuiverLiveChatMessage[]>([]);
 
   useEffect(() => {
@@ -65,9 +65,10 @@ export function Chat({ hostName, hostIdentity, viewerName, isFollowing, isChatEn
     {variant === ChatVariant.CHAT && <>
       <ChatList messages={messages} isHidden={isHidden} />
       <ChatForm onSubmit={onSubmit} value={value} onChange={setValue} isHidden={isHidden}
-        isFollowersOnly={isChatFollowersOnly} isDelayed={isChatDelayed} isFollowing={isFollowing} />
+        isFollowersOnly={isChatFollowersOnly} isDelayed={isChatDelayed} isFollowing={isFollowing}
+        isGuest={viewerIdentity.startsWith("guest-")} />
     </>}
-    {variant === ChatVariant.COMMUNITY && <ChatCommunity hostName={hostName} viewerName={viewerName} isHidden={isHidden} />}
+    {variant === ChatVariant.COMMUNITY && <ChatCommunity hostIdentity={hostIdentity} viewerIdentity={viewerIdentity} isHidden={isHidden} />}
   </div>;
 }
 

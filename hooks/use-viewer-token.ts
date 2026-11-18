@@ -19,7 +19,7 @@ export const useViewerToken = (hostIdentity: string) => {
         const viewerToken = await createViewerToken(hostIdentity);
         const decoded = jwtDecode(viewerToken) as JwtPayload & { name?: string };
         if (cancelled) return;
-        setToken(viewerToken); setName(decoded.name || ""); setIdentity(decoded.jti || "");
+        setToken(viewerToken); setName(decoded.name || ""); setIdentity(decoded.sub || "");
       } catch (caught) {
         if (cancelled) return;
         const message = caught instanceof Error ? caught.message : "Unable to create a viewer token";

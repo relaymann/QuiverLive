@@ -1,40 +1,36 @@
 import React from "react";
-
 import { getSelf } from "@/lib/auth-service";
 import { getStreamByUserId } from "@/lib/stream-service";
-
+import { db } from "@/lib/db";
 import { ToggleCard } from "./_components/toggle-card";
+import { BannedViewers } from "./_components/banned-viewers";
 
 export default async function ChatPage() {
   const self = await getSelf();
   const stream = await getStreamByUserId(self.id);
+  if (!stream) throw new Error("No stream found");
 
-  if (!stream) {
-    throw new Error("No stream found");
-  }
+  const bannedViewers = await db.chatModeration.findMany({
+    where: { streamId: stream.id, isBanned: true },
+    select: {
+      participantIdentity: true,
+      participantUser: { select: { username: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
-  return (
-    <div className="p-6">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold">Chat settings</h1>
-      </div>
+  return <div className="space-y-8 p-6">
+    <section>
+      <div className="mb-4"><h1 className="text-2xl font-bold">Chat settings</h1></div>
       <div className="space-y-4">
-        <ToggleCard
-          field="isChatEnabled"
-          label="Enable chat"
-          value={stream.isChatEnabled}
-        />
-        <ToggleCard
-          field="isChatDelayed"
-          label="Delay chat"
-          value={stream.isChatDelayed}
-        />
-        <ToggleCard
-          field="isChatFollowersOnly"
-          label="Must be following to chat"
-          value={stream.isChatFollowersOnly}
-        />
+        <ToggleCard field="isChatEnabled" label="Enable chat" value={stream.isChatEnabled} />
+        <ToggleCard field="isChatDelayed" label="Delay chat" value={stream.isChatDelayed} />
+        <ToggleCard field="isChatFollowersOnly" label="Must be following to chat" value={stream.isChatFollowersOnly} />
       </div>
-    </div>
-  );
+    </section>
+    <section>
+      <div className="mb-4"><h2 className="text-xl font-bold">Banned viewers</h2><p className="mt-1 text-sm text-muted-foreground">Bans are tied to registered accounts. Guests can be timed out but cannot receive persistent bans.</p></div>
+      <BannedViewers hostIdentity={self.id} viewers={bannedViewers} />
+    </section>
+  </div>;
 }

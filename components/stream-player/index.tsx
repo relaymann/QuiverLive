@@ -35,7 +35,7 @@ export function StreamPlayer({ user, stream, isFollowing }: { user: CustomUser; 
         <AboutCard hostName={user.username} hostIdentity={user.id} viewerIdentity={identity} bio={user.bio} followedByCount={user._count.followedBy} />
       </div>
       <div className={cn("col-span-1", collapsed && "hidden")}>
-        <Chat viewerName={name} hostName={user.username} hostIdentity={user.id} isFollowing={isFollowing}
+        <Chat viewerName={name} viewerIdentity={identity} hostName={user.username} hostIdentity={user.id} isFollowing={isFollowing}
           isChatEnabled={stream.isChatEnabled} isChatDelayed={stream.isChatDelayed} isChatFollowersOnly={stream.isChatFollowersOnly} />
       </div>
     </LiveKitRoom>
