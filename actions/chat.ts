@@ -14,8 +14,8 @@ const formatElapsed = (totalSeconds: number) => {
   const parts: string[] = [];
   if (days) parts.push(`${days}d`);
   if (hours) parts.push(`${hours}h`);
-  if (minutes || parts.length === 0) parts.push(`${minutes}m`);
-  return parts.join(" ");
+  if (minutes) parts.push(`${minutes}m`);
+  return parts.length ? parts.join(" ") : "<1m";
 };
 
 export const sendChatMessage = async (hostIdentity: string, rawMessage: string) => {
