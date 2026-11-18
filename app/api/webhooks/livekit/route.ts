@@ -1,12 +1,43 @@
-import { WebhookReceiver, type WebhookEvent } from "livekit-server-sdk";
+import { RoomServiceClient, WebhookReceiver, type WebhookEvent } from "livekit-server-sdk";
 import { db } from "@/lib/db";
 
+const startViewerSessions = async (
+  roomName: string,
+  streamId: string,
+  broadcastSessionId: string,
+  apiUrl: string,
+  apiKey: string,
+  apiSecret: string,
+) => {
+  const roomService = new RoomServiceClient(apiUrl, apiKey, apiSecret);
+  const participants = await roomService.listParticipants(roomName);
+  const viewers = participants.filter((participant) =>
+    participant.identity !== `host-${roomName}` &&
+    !participant.identity.startsWith(`browser-${roomName}-`) &&
+    !participant.identity.startsWith(`ingress-${roomName}-`)
+  );
+
+  if (viewers.length) {
+    await db.watchSession.createMany({
+      data: viewers.map((participant) => ({
+        streamId,
+        broadcastSessionId,
+        participantSid: participant.sid,
+        participantIdentity: participant.identity,
+        startedAt: new Date(),
+      })),
+      skipDuplicates: true,
+    });
+  }
+};
+
 export async function POST(req: Request) {
+  const apiUrl = process.env.LIVEKIT_API_URL;
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
   const authorization = req.headers.get("Authorization");
 
-  if (!apiKey || !apiSecret) {
+  if (!apiKey || !apiSecret || !apiUrl) {
     console.error("LiveKit webhook credentials are not configured");
     return new Response("Webhook is not configured", { status: 500 });
   }
@@ -29,17 +60,37 @@ export async function POST(req: Request) {
         where: { ingressId, broadcastSource: "ingress", isLive: false },
         data: { isLive: true, broadcastLeaseExpiresAt: null },
       });
+      const stream = await db.stream.findFirst({
+        where: { ingressId, broadcastSource: "ingress", isLive: true },
+        select: { id: true, userId: true, broadcastSessionId: true },
+      });
+      if (stream?.broadcastSessionId) {
+        await startViewerSessions(stream.userId, stream.id, stream.broadcastSessionId, apiUrl, apiKey, apiSecret);
+      }
     }
 
     if (ingressId && event.event === "ingress_ended") {
-      await db.stream.updateMany({
+      const stream = await db.stream.findFirst({
         where: { ingressId, broadcastSource: "ingress" },
-        data: { isLive: false, broadcastSource: null, broadcastSessionId: null, broadcastLeaseExpiresAt: null },
+        select: { id: true, broadcastSessionId: true },
       });
+      if (stream) {
+        const ended = await db.stream.updateMany({
+          where: { id: stream.id, ingressId, broadcastSource: "ingress" },
+          data: { isLive: false, broadcastSource: null, broadcastSessionId: null, broadcastLeaseExpiresAt: null },
+        });
+        if (ended.count && stream.broadcastSessionId) {
+          await db.watchSession.updateMany({
+            where: { streamId: stream.id, broadcastSessionId: stream.broadcastSessionId, endedAt: null },
+            data: { endedAt: new Date() },
+          });
+        }
+      }
     }
 
     const roomName = event.room?.name;
     const participantIdentity = event.participant?.identity;
+    const participantSid = event.participant?.sid;
     if (roomName && participantIdentity) {
       const browserPrefix = `browser-${roomName}-`;
       const ingressPrefix = `ingress-${roomName}-`;
@@ -60,10 +111,18 @@ export async function POST(req: Request) {
           },
           data: { isLive: true, broadcastLeaseExpiresAt: null },
         });
+        // Also sync viewers who joined the room before the broadcaster went live.
+        const stream = await db.stream.findUnique({
+          where: { userId: roomName },
+          select: { id: true, isLive: true, broadcastSource: true, broadcastSessionId: true },
+        });
+        if (stream?.isLive && stream.broadcastSource === source && stream.broadcastSessionId === sessionId) {
+          await startViewerSessions(roomName, stream.id, sessionId, apiUrl, apiKey, apiSecret);
+        }
       }
 
       if (source && sessionId && event.event === "participant_left") {
-        await db.stream.updateMany({
+        const ended = await db.stream.updateMany({
           where: {
             userId: roomName,
             broadcastSource: source,
@@ -72,28 +131,39 @@ export async function POST(req: Request) {
           },
           data: { isLive: false, broadcastSource: null, broadcastSessionId: null, broadcastLeaseExpiresAt: null },
         });
+        if (ended.count) {
+          const stream = await db.stream.findUnique({ where: { userId: roomName }, select: { id: true } });
+          if (stream) {
+            await db.watchSession.updateMany({
+              where: { streamId: stream.id, broadcastSessionId: sessionId, endedAt: null },
+              data: { endedAt: new Date() },
+            });
+          }
+        }
       }
 
-      // Viewer sessions are keyed by LiveKit participant SID, not identity, so
-      // reconnects create distinct sessions and delayed leave events cannot close
-      // a newer connection from the same account.
-      if (!source && !participantIdentity.startsWith(`host-`) && event.participant?.sid &&
+      // Track viewers only while a broadcaster is live. A viewer who joined
+      // before the stream starts is picked up when the publisher joins above.
+      if (!source && !participantIdentity.startsWith("host-") && participantSid &&
         (event.event === "participant_joined" || event.event === "participant_left")) {
         const stream = await db.stream.findUnique({
           where: { userId: roomName },
-          select: { id: true },
+          select: { id: true, isLive: true, broadcastSessionId: true },
         });
-        if (stream && event.event === "participant_joined") {
+
+        if (stream && event.event === "participant_joined" && stream.isLive && stream.broadcastSessionId) {
           await db.watchSession.upsert({
             where: {
-              streamId_participantSid: {
+              streamId_broadcastSessionId_participantSid: {
                 streamId: stream.id,
-                participantSid: event.participant.sid,
+                broadcastSessionId: stream.broadcastSessionId,
+                participantSid,
               },
             },
             create: {
               streamId: stream.id,
-              participantSid: event.participant.sid,
+              broadcastSessionId: stream.broadcastSessionId,
+              participantSid,
               participantIdentity,
               startedAt: new Date(),
             },
@@ -102,32 +172,9 @@ export async function POST(req: Request) {
         }
 
         if (stream && event.event === "participant_left") {
-          const endedAt = new Date();
-          // Create a zero-length closed row if the leave webhook arrives before
-          // its matching join webhook. The later join upsert must not reopen it.
-          await db.watchSession.upsert({
-            where: {
-              streamId_participantSid: {
-                streamId: stream.id,
-                participantSid: event.participant.sid,
-              },
-            },
-            create: {
-              streamId: stream.id,
-              participantSid: event.participant.sid,
-              participantIdentity,
-              startedAt: endedAt,
-              endedAt,
-            },
-            update: {},
-          });
           await db.watchSession.updateMany({
-            where: {
-              streamId: stream.id,
-              participantSid: event.participant.sid,
-              endedAt: null,
-            },
-            data: { endedAt },
+            where: { streamId: stream.id, participantSid, endedAt: null },
+            data: { endedAt: new Date() },
           });
         }
       }
