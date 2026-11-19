@@ -36,12 +36,12 @@ export function ConnectModal() {
 
   const onSubmit = () => {
     startTransition(() => {
-      createIngress(parseInt(ingressType))
+      createIngress(parseInt(ingressType, 10))
         .then(() => {
           toast.success("Connection generated");
-          closeRef?.current?.click();
+          closeRef.current?.click();
         })
-        .catch(() => toast.error("Connection generation failed"));
+        .catch((error) => toast.error(error instanceof Error ? error.message : "Connection generation failed"));
     });
   };
 
@@ -54,25 +54,20 @@ export function ConnectModal() {
         <DialogHeader>
           <DialogTitle>Generate connection</DialogTitle>
         </DialogHeader>
-        <Select
-          disabled={isPending}
-          value={ingressType}
-          onValueChange={(value) => setIngressType(value)}
-        >
+        <Select disabled={isPending} value={ingressType} onValueChange={(value) => setIngressType(value as IngressType)}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Ingress Type" />
-            <SelectContent>
-              <SelectItem value={RTMP}>RTMP</SelectItem>
-              <SelectItem value={WHIP}>WHIP</SelectItem>
-            </SelectContent>
           </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={RTMP}>RTMP</SelectItem>
+            <SelectItem value={WHIP}>WHIP</SelectItem>
+          </SelectContent>
         </Select>
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Warning!</AlertTitle>
           <AlertDescription>
-            This action will reset all active streams using the currnet
-            connection.
+            This action will reset the existing ingest connection. Stop any active broadcast before replacing it.
           </AlertDescription>
         </Alert>
         <div className="flex justify-between">
