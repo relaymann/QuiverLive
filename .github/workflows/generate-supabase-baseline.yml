@@ -1,0 +1,36 @@
+name: Generate Supabase Baseline
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout development
+        uses: actions/checkout@v4
+        with:
+          ref: development
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate baseline migration
+        run: npm run db:generate-baseline
+
+      - name: Upload baseline SQL
+        uses: actions/upload-artifact@v4
+        with:
+          name: schoolstream-supabase-baseline
+          path: prisma/migrations/20261118000000_init_postgresql/migration.sql
+          if-no-files-found: error
+          retention-days: 7
