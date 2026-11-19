@@ -1,13 +1,11 @@
+import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getSelf } from "@/lib/auth-service";
+
+const usernameFor = (user: NonNullable<Awaited<ReturnType<typeof currentUser>>>) =>
+  user.username?.trim() || "user-" + user.id.slice(-8).toLowerCase();
 
 export default async function DashboardRedirect() {
-  let self;
-  try {
-    self = await getSelf();
-  } catch (error) {
-    console.error("Dashboard redirect could not resolve account:", error);
-    redirect("/");
-  }
-  redirect("/u/" + encodeURIComponent(self.username));
+  const user = await currentUser();
+  if (!user) redirect("/");
+  redirect("/u/" + encodeURIComponent(usernameFor(user)));
 }
