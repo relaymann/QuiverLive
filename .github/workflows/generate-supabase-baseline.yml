@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   generate:
@@ -27,10 +27,14 @@ jobs:
       - name: Generate baseline migration
         run: npm run db:generate-baseline
 
-      - name: Upload baseline SQL
-        uses: actions/upload-artifact@v4
-        with:
-          name: schoolstream-supabase-baseline
-          path: prisma/migrations/20261118000000_init_postgresql/migration.sql
-          if-no-files-found: error
-          retention-days: 7
+      - name: Commit generated SQL to development
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prisma/migrations/20261118000000_init_postgresql/migration.sql
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Generate Supabase baseline migration"
+            git push origin development
+          fi
