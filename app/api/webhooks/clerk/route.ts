@@ -38,7 +38,6 @@ export async function POST(req: Request) {
   try {
     if (event.type === "user.created" || event.type === "user.updated") {
       const requestedUsername = data.username?.trim() || "user-" + data.id.slice(-8).toLowerCase();
-      const existing = await db.user.findUnique({ where: { externalUserId: data.id }, select: { username: true } });
       const collision = await db.user.findUnique({ where: { username: requestedUsername }, select: { externalUserId: true } });
       const username = collision && collision.externalUserId !== data.id
         ? requestedUsername.slice(0, 50) + "-" + data.id.slice(-8).toLowerCase()
@@ -52,7 +51,6 @@ export async function POST(req: Request) {
         },
         update: { username, imageUrl },
       });
-      void existing;
     } else if (event.type === "user.deleted") {
       const user = await db.user.findUnique({ where: { externalUserId: data.id }, select: { id: true } });
       if (user) {
