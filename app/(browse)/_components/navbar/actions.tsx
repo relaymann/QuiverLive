@@ -10,16 +10,17 @@ export async function Actions() {
   try {
     user = await currentUser();
   } catch (error) {
-    // Authentication availability must not prevent public browsing.
     console.error("Navbar authentication lookup failed:", error);
   }
+
+  const dashboardUsername = user?.username?.trim() || (user ? "user-" + user.id.slice(-8).toLowerCase() : "");
 
   return (
     <div className="flex items-center justify-end gap-x-2 ml-4 lg:ml-0">
       {!user && <SignInButton><Button variant="primary">Login</Button></SignInButton>}
       {!!user && <div className="flex items-center gap-x-4">
         <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-primary" asChild>
-          <Link href={user.username ? "/u/" + user.username : "/"}>
+          <Link href={"/u/" + dashboardUsername}>
             <Clapperboard className="h-5 w-5 lg:mr-2" />
             <span className="hidden lg:block">Dashboard</span>
           </Link>
