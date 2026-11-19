@@ -11,26 +11,29 @@ export const getRecommended = async () => {
     // Recommendations are also available to signed-out visitors.
   }
 
-  return db.user.findMany({
-    where: userId
-      ? {
-          AND: [
-            { NOT: { id: userId } },
-            { NOT: { followedBy: { some: { followerId: userId } } } },
-            { blocking: { none: { blockedId: userId } } },
-            { blockedBy: { none: { blockerId: userId } } },
-          ],
-        }
-      : undefined,
-    select: {
-      id: true,
-      username: true,
-      imageUrl: true,
-      stream: {
-        select: { isLive: true },
+  try {
+    return await db.user.findMany({
+      where: userId
+        ? {
+            AND: [
+              { NOT: { id: userId } },
+              { NOT: { followedBy: { some: { followerId: userId } } } },
+              { blocking: { none: { blockedId: userId } } },
+              { blockedBy: { none: { blockerId: userId } } },
+            ],
+          }
+        : undefined,
+      select: {
+        id: true,
+        username: true,
+        imageUrl: true,
+        stream: { select: { isLive: true } },
       },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  });
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+  } catch (error) {
+    console.error("Failed to load recommended channels:", error);
+    return [];
+  }
 };
