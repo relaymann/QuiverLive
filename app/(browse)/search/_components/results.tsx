@@ -6,7 +6,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ResultCard, ResultCardSkeleton } from "./result-card";
 
 export async function Results({ term }: { term?: string }) {
-  const data = await getSearch(term);
+  let data;
+  try {
+    data = await getSearch(term);
+  } catch (error) {
+    console.error("Search query failed:", error);
+    return (
+      <div role="alert" className="rounded-xl border border-white/10 p-6 text-center">
+        <p className="font-medium">Search is temporarily unavailable</p>
+        <p className="mt-2 text-sm text-muted-foreground">We couldn’t load search results. Please try again shortly.</p>
+      </div>
+    );
+  }
 
   return (
     <div>
