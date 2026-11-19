@@ -20,8 +20,8 @@ export default async function CreatorLayout({ children, params }: {
     console.error("Creator dashboard authentication/provisioning failed:", error);
     redirect("/");
   }
-
-  // Keep redirect outside the try/catch: Next.js redirects throw internally.
-  if (!self || self.username !== username) redirect("/");
+  if (!self) redirect("/");
+  // Redirect to the account's canonical database username, not the homepage.
+  if (self.username !== username) redirect("/u/" + self.username);
   return <><Navbar /><div className="flex h-full pt-20"><Sidebar /><Container>{children}</Container></div></>;
 }
