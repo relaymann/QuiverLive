@@ -13,7 +13,11 @@ export default async function CreatorLayout({ children, params }: {
   params: Promise<{ username: string }>;
 }) {
   const { username } = await params;
-  const self = await getSelfByUsername(username);
-  if (!self) redirect("/");
+  try {
+    const self = await getSelfByUsername(username);
+    if (!self) redirect("/");
+  } catch {
+    redirect("/");
+  }
   return <><Navbar /><div className="flex h-full pt-20"><Sidebar /><Container>{children}</Container></div></>;
 }
