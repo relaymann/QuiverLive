@@ -6,19 +6,21 @@ const ensureDatabaseUser = async (clerkUser: NonNullable<Awaited<ReturnType<type
   const username = clerkUser.username;
   const imageUrl = clerkUser.imageUrl || "";
 
-  // Webhook delivery can be delayed or misconfigured. Provision the signed-in
-  // user on demand so dashboard navigation doesn't depend on a webhook having
-  // already created the database record.
-  return db.user.upsert({
+  // Provision the user independently from the stream. This also repairs accounts
+  // whose user record exists but whose stream was never created by the webhook.
+  const user = await db.user.upsert({
     where: { externalUserId: clerkUser.id },
-    create: {
-      externalUserId: clerkUser.id,
-      username,
-      imageUrl,
-      stream: { create: { name: username + "'s stream" } },
-    },
+    create: { externalUserId: clerkUser.id, username, imageUrl },
     update: { username, imageUrl },
   });
+
+  await db.stream.upsert({
+    where: { userId: user.id },
+    create: { userId: user.id, name: username + "'s stream" },
+    update: {},
+  });
+
+  return user;
 };
 
 export const getSelf = async () => {
