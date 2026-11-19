@@ -9,11 +9,17 @@ import { Recommended, RecommendedSkeleton } from "./recommended";
 import { Following, FollowingSkeleton } from "./following";
 
 export async function Sidebar() {
-  // These independent reads can run together instead of serializing the
-  // sidebar's two database-backed sections.
+  // Treat sidebar queries as independent optional data: a failure must not
+  // take down the browse routes or the homepage.
   const [recommended, following] = await Promise.all([
-    getRecommended(),
-    getFollwedUser(),
+    getRecommended().catch((error) => {
+      console.error("Sidebar recommendations failed:", error);
+      return [];
+    }),
+    getFollwedUser().catch((error) => {
+      console.error("Sidebar following failed:", error);
+      return [];
+    }),
   ]);
 
   return (
