@@ -7,14 +7,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 export function Actions() {
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
-  const username = user?.username?.trim() || (user ? "user-" + user.id.slice(-8).toLowerCase() : "");
 
-  const openDashboard = () => {
-    if (!isLoaded || !isSignedIn || !username) return;
-    router.push("/u/" + encodeURIComponent(username));
-  };
+  const openDashboard = () => router.push("/dashboard");
 
   return (
     <div className="flex items-center justify-end gap-x-2 ml-4 lg:ml-0">
@@ -25,7 +21,6 @@ export function Actions() {
           variant="ghost"
           className="text-muted-foreground hover:text-primary"
           onClick={openDashboard}
-          disabled={!username}
           type="button"
         >
           <Clapperboard className="h-5 w-5 lg:mr-2" />
