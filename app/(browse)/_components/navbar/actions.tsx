@@ -6,7 +6,14 @@ import { currentUser } from "@clerk/nextjs/server";
 import { Button } from "@/components/ui/button";
 
 export async function Actions() {
-  const user = await currentUser();
+  let user = null;
+  try {
+    user = await currentUser();
+  } catch (error) {
+    // Authentication availability must not prevent public browsing.
+    console.error("Navbar authentication lookup failed:", error);
+  }
+
   return (
     <div className="flex items-center justify-end gap-x-2 ml-4 lg:ml-0">
       {!user && <SignInButton><Button variant="primary">Login</Button></SignInButton>}
