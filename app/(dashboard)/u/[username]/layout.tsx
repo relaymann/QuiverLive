@@ -12,12 +12,13 @@ export default async function CreatorLayout({ children }: {
   children: React.ReactNode;
   params: Promise<{ username: string }>;
 }) {
+  let self;
   try {
-    const self = await getSelf();
-    if (!self) redirect("/");
+    self = await getSelf();
   } catch (error) {
     console.error("Creator dashboard authentication/provisioning failed:", error);
     redirect("/");
   }
+  if (!self) redirect("/");
   return <><Navbar /><div className="flex h-full pt-20"><Sidebar /><Container>{children}</Container></div></>;
 }
