@@ -11,12 +11,14 @@ export default async function CreatorPage({ params }: { params: Promise<{ userna
   let user = null;
   try {
     self = await getSelf();
-    if (self.username === username) user = await getUserByUsername(self.username);
+    user = await getUserByUsername(self.username);
   } catch (error) {
     console.error("Creator dashboard page data failed:", error);
     redirect("/");
   }
-  if (!self || self.username !== username || !user || user.id !== self.id || !user.stream) redirect("/");
+  if (!self) redirect("/");
+  if (self.username !== username) redirect("/u/" + self.username);
+  if (!user || user.id !== self.id || !user.stream) redirect("/");
   return <div className="h-full space-y-4 p-4">
     <BrowserBroadcast hostIdentity={user.id} />
     <div className="min-h-0"><StreamPlayer user={user} stream={user.stream} isFollowing={true} /></div>
