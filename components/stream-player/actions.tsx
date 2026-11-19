@@ -31,7 +31,7 @@ export function Actions({
         .then((data) =>
           toast.success(`You are now following ${data.following.username}.`)
         )
-        .catch(() => toast.error("Something went wrong while following."));
+        .catch((error) => toast.error(error instanceof Error ? error.message : "Unable to follow channel"));
     });
   };
 
@@ -41,7 +41,7 @@ export function Actions({
         .then((data) =>
           toast.success(`You have unfollowed ${data.following.username}.`)
         )
-        .catch(() => toast.error("Something went wrong while unfollowing."));
+        .catch((error) => toast.error(error instanceof Error ? error.message : "Unable to unfollow channel"));
     });
   };
 
